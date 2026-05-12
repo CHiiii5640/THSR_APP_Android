@@ -14,6 +14,7 @@ import java.time.ZoneId
 class BookingNotificationScheduler(
     private val context: Context,
     private val zoneId: ZoneId = ZoneId.of("Asia/Taipei"),
+    private val store: BookingNotificationStore = SharedPreferencesBookingNotificationStore(context),
 ) {
     private val alarmManager = context.getSystemService(AlarmManager::class.java)
     private val notificationManager = context.getSystemService(NotificationManager::class.java)
@@ -27,10 +28,33 @@ class BookingNotificationScheduler(
         } else {
             alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
         }
+        store.upsert(option.toScheduledNotification(reminderAt))
     }
 
     fun cancel(option: TrainOption) {
-        alarmManager.cancel(pendingIntent(option))
+        cancel(notificationId(option), pendingIntent(option))
+    }
+
+    fun cancel(id: String) {
+        val intent = Intent(context, BookingNotificationReceiver::class.java).apply {
+            action = id
+        }
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            id.hashCode(),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        cancel(id, pendingIntent)
+    }
+
+    fun scheduledNotifications(): List<ScheduledBookingNotification> {
+        return store.list()
+    }
+
+    private fun cancel(id: String, pendingIntent: PendingIntent) {
+        alarmManager.cancel(pendingIntent)
+        store.remove(id)
     }
 
     private fun pendingIntent(option: TrainOption): PendingIntent {
@@ -60,3 +84,13 @@ class BookingNotificationScheduler(
             "booking-open-${option.trainNo}-${option.travelDate}-${option.origin.code}-${option.destination.code}"
     }
 }
+
+private fun TrainOption.toScheduledNotification(reminderAt: LocalDateTime): ScheduledBookingNotification =
+    ScheduledBookingNotification(
+        id = BookingNotificationScheduler.notificationId(this),
+        trainNo = trainNo,
+        travelDate = travelDate.toString(),
+        originName = origin.localName,
+        destinationName = destination.localName,
+        reminderAt = reminderAt.toString(),
+    )
