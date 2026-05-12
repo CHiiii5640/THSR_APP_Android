@@ -1,0 +1,5 @@
+## Copy this file to local.properties on your own machine.
+## Do not commit local.properties.
+sdk.dir=/path/to/Android/sdk
+TDX_CLIENT_ID=your_tdx_client_id
+TDX_CLIENT_SECRET=your_tdx_client_secret

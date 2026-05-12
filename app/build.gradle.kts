@@ -1,8 +1,22 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.serialization")
 }
+
+val localProperties = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) {
+        file.inputStream().use(::load)
+    }
+}
+
+fun localConfig(name: String): String =
+    localProperties.getProperty(name)
+        ?: System.getenv(name)
+        ?: ""
 
 android {
     namespace = "com.chiiii5640.thsrapp"
@@ -18,8 +32,8 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
 
-        buildConfigField("String", "TDX_CLIENT_ID", "\"${System.getenv("TDX_CLIENT_ID").orEmpty()}\"")
-        buildConfigField("String", "TDX_CLIENT_SECRET", "\"${System.getenv("TDX_CLIENT_SECRET").orEmpty()}\"")
+        buildConfigField("String", "TDX_CLIENT_ID", "\"${localConfig("TDX_CLIENT_ID")}\"")
+        buildConfigField("String", "TDX_CLIENT_SECRET", "\"${localConfig("TDX_CLIENT_SECRET")}\"")
         buildConfigField("String", "DISCOUNT_FEED_URL", "\"https://chiiii5640.github.io/THSR_APP/api/discounts.json\"")
     }
 

@@ -9,6 +9,7 @@ import com.chiiii5640.thsrapp.core.model.TdxStopTime
 import com.chiiii5640.thsrapp.core.model.TimelineStop
 import com.chiiii5640.thsrapp.core.model.TripQuery
 import com.chiiii5640.thsrapp.core.network.TdxApiClient
+import com.chiiii5640.thsrapp.core.network.unavailableStatus
 import com.chiiii5640.thsrapp.core.persistence.PersistedGeneralTimetableStore
 import java.time.LocalTime
 
@@ -19,7 +20,8 @@ class TdxTimetableProvider(
     private var generalMemoryCache: List<TdxGeneralTimetableItem>? = null
 
     override suspend fun trains(query: TripQuery): TimetableResult {
-        val daily = runCatching { api.dailyTimetable(query.travelDate, query.forceRefresh) }.getOrNull().orEmpty()
+        val dailyResult = runCatching { api.dailyTimetable(query.travelDate, query.forceRefresh) }
+        val daily = dailyResult.getOrNull().orEmpty()
         if (daily.isNotEmpty()) {
             return TimetableResult(
                 trains = daily.mapNotNull { it.toTimetableTrain(query) },
@@ -28,7 +30,8 @@ class TdxTimetableProvider(
             )
         }
 
-        val general = runCatching { loadGeneral(query.forceRefresh) }.getOrNull().orEmpty()
+        val generalResult = runCatching { loadGeneral(query.forceRefresh) }
+        val general = generalResult.getOrNull().orEmpty()
         if (general.isNotEmpty()) {
             return TimetableResult(
                 trains = general.mapNotNull { it.toTimetableTrain(query) },
@@ -41,7 +44,10 @@ class TdxTimetableProvider(
         return TimetableResult(
             trains = persisted.mapNotNull { it.toTimetableTrain(query) },
             status = if (persisted.isEmpty()) {
-                SourceStatus("timetable unavailable", SourceState.Unavailable)
+                unavailableStatus(
+                    defaultLabel = "timetable unavailable",
+                    throwable = generalResult.exceptionOrNull() ?: dailyResult.exceptionOrNull(),
+                )
             } else {
                 SourceStatus("persisted GeneralTimetable fallback", SourceState.Fallback)
             },

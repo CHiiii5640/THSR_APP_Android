@@ -6,6 +6,7 @@ import com.chiiii5640.thsrapp.core.model.SourceStatus
 import com.chiiii5640.thsrapp.core.model.TdxSeatStatusItem
 import com.chiiii5640.thsrapp.core.model.TripQuery
 import com.chiiii5640.thsrapp.core.network.TdxApiClient
+import com.chiiii5640.thsrapp.core.network.unavailableStatus
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
@@ -42,7 +43,7 @@ class TdxSeatAvailabilityProvider(
             return SeatAvailabilityResult(cached.values, SourceStatus("seat availability cache", SourceState.Cache))
         }
 
-        val fetched = runCatching {
+        val fetchedResult = runCatching {
             val od = api.odSeatStatus(query.travelDate, query.origin, query.destination, query.forceRefresh)
             if (query.travelDate == LocalDate.now(clock)) {
                 od + api.todaySeatBoard(query.origin, query.forceRefresh)
@@ -51,10 +52,14 @@ class TdxSeatAvailabilityProvider(
             }
         }.onFailure { error ->
             if (error.message?.contains("429") == true) cooldownUntil = now.plusSeconds(30)
-        }.getOrNull()
+        }
+        val fetched = fetchedResult.getOrNull()
 
         if (fetched == null) {
-            return SeatAvailabilityResult(emptyMap(), SourceStatus("seat availability unavailable", SourceState.Unavailable))
+            return SeatAvailabilityResult(
+                emptyMap(),
+                unavailableStatus("seat availability unavailable", fetchedResult.exceptionOrNull()),
+            )
         }
 
         val mapped = fetched

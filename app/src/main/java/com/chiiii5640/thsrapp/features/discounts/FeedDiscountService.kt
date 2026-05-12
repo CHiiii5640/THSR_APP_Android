@@ -6,6 +6,7 @@ import com.chiiii5640.thsrapp.core.model.DiscountType
 import com.chiiii5640.thsrapp.core.model.SourceState
 import com.chiiii5640.thsrapp.core.model.SourceStatus
 import com.chiiii5640.thsrapp.core.network.HttpClient
+import com.chiiii5640.thsrapp.core.network.unavailableStatus
 import com.chiiii5640.thsrapp.features.timetable.TimetableTrain
 import kotlinx.serialization.json.Json
 import java.time.LocalDate
@@ -23,18 +24,26 @@ class FeedDiscountService(
         trains: List<TimetableTrain>,
         forceRefresh: Boolean,
     ): DiscountResult {
-        val feed = if (!forceRefresh && cachedFeed != null) {
-            cachedFeed
+        val feedResult = if (!forceRefresh && cachedFeed != null) {
+            Result.success(cachedFeed)
         } else {
             runCatching {
                 val response = client.get(feedUrl)
                 if (!response.isSuccessful) error("discount feed HTTP ${response.code}")
                 json.decodeFromString<DiscountFeed>(response.body).also { cachedFeed = it }
-            }.getOrNull()
+            }
+        }
+        val feed = if (!forceRefresh && cachedFeed != null) {
+            cachedFeed
+        } else {
+            feedResult.getOrNull()
         }
 
         if (feed == null) {
-            return DiscountResult(emptyMap(), SourceStatus("discount feed unavailable", SourceState.Unavailable))
+            return DiscountResult(
+                emptyMap(),
+                unavailableStatus("discount feed unavailable", feedResult.exceptionOrNull()),
+            )
         }
 
         val offers = trains.associate { train ->
