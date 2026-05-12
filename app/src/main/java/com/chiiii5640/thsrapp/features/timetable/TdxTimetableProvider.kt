@@ -5,19 +5,25 @@ import com.chiiii5640.thsrapp.core.model.SourceStatus
 import com.chiiii5640.thsrapp.core.model.Station
 import com.chiiii5640.thsrapp.core.model.TdxDailyTimetableItem
 import com.chiiii5640.thsrapp.core.model.TdxGeneralTimetableItem
+import com.chiiii5640.thsrapp.core.model.TdxGeneralTimetableRecord
 import com.chiiii5640.thsrapp.core.model.TdxStopTime
 import com.chiiii5640.thsrapp.core.model.TimelineStop
 import com.chiiii5640.thsrapp.core.model.TripQuery
 import com.chiiii5640.thsrapp.core.network.TdxApiClient
 import com.chiiii5640.thsrapp.core.network.unavailableStatus
 import com.chiiii5640.thsrapp.core.persistence.PersistedGeneralTimetableStore
+import java.time.Duration
+import java.time.Instant
 import java.time.LocalTime
+import java.time.Clock
 
 class TdxTimetableProvider(
     private val api: TdxApiClient,
     private val persistedStore: PersistedGeneralTimetableStore,
+    private val clock: Clock = Clock.systemDefaultZone(),
 ) : TimetableProvider {
-    private var generalMemoryCache: List<TdxGeneralTimetableItem>? = null
+    private var generalMemoryCache: List<TdxGeneralTimetableRecord>? = null
+    private var generalCooldownUntil: Instant? = null
 
     override suspend fun trains(query: TripQuery): TimetableResult {
         val dailyResult = runCatching { api.dailyTimetable(query.travelDate, query.forceRefresh) }
@@ -55,9 +61,30 @@ class TdxTimetableProvider(
         )
     }
 
-    private suspend fun loadGeneral(forceRefresh: Boolean): List<TdxGeneralTimetableItem> {
-        if (!forceRefresh) generalMemoryCache?.let { return it }
-        val general = api.generalTimetable(forceRefresh)
+    private suspend fun loadGeneral(forceRefresh: Boolean): List<TdxGeneralTimetableRecord> {
+        val now = Instant.now(clock)
+        val cooldownActive = generalCooldownUntil?.isAfter(now) == true
+
+        if (!forceRefresh || cooldownActive) {
+            generalMemoryCache?.let { return it }
+            if (cooldownActive) {
+                persistedStore.read().takeIf { it.isNotEmpty() }?.let { return it }
+                return emptyList()
+            }
+        }
+
+        val general = try {
+            api.generalTimetable(forceRefresh)
+        } catch (error: Throwable) {
+            if (error.message?.contains("429") == true) {
+                generalCooldownUntil = now.plus(Duration.ofSeconds(30))
+                generalMemoryCache?.let { return it }
+                persistedStore.read().takeIf { it.isNotEmpty() }?.let { return it }
+            }
+            throw error
+        }
+
+        generalCooldownUntil = null
         if (general.isNotEmpty()) {
             generalMemoryCache = general
             persistedStore.write(general)
@@ -73,9 +100,9 @@ private fun TdxDailyTimetableItem.toTimetableTrain(query: TripQuery): TimetableT
         destination = query.destination,
     )
 
-private fun TdxGeneralTimetableItem.toTimetableTrain(query: TripQuery): TimetableTrain? =
-    stopTimes.toTimetableTrain(
-        trainNo = generalTrainInfo.trainNo,
+private fun TdxGeneralTimetableRecord.toTimetableTrain(query: TripQuery): TimetableTrain? =
+    generalTimetable.stopTimes.toTimetableTrain(
+        trainNo = generalTimetable.generalTrainInfo.trainNo,
         origin = query.origin,
         destination = query.destination,
     )

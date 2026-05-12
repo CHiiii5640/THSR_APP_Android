@@ -15,4 +15,7 @@ data class TripQuery(
     }
 
     fun cacheKey(): String = "${origin.id}-${destination.id}-$travelDate"
+
+    fun directionLabel(): String =
+        if (Station.entries.indexOf(origin) <= Station.entries.indexOf(destination)) "南下" else "北上"
 }

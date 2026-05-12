@@ -1,7 +1,7 @@
 package com.chiiii5640.thsrapp.core.persistence
 
 import android.content.Context
-import com.chiiii5640.thsrapp.core.model.TdxGeneralTimetableItem
+import com.chiiii5640.thsrapp.core.model.TdxGeneralTimetableRecord
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
@@ -14,12 +14,12 @@ class PersistedGeneralTimetableStore(
 ) {
     private val file = File(context.filesDir, "PersistedGeneralTimetable.json")
 
-    suspend fun read(): List<TdxGeneralTimetableItem> = withContext(Dispatchers.IO) {
+    suspend fun read(): List<TdxGeneralTimetableRecord> = withContext(Dispatchers.IO) {
         if (!file.exists()) return@withContext emptyList()
-        json.decodeFromString<List<TdxGeneralTimetableItem>>(file.readText())
+        json.decodeFromString<List<TdxGeneralTimetableRecord>>(file.readText())
     }
 
-    suspend fun write(items: List<TdxGeneralTimetableItem>) = withContext(Dispatchers.IO) {
+    suspend fun write(items: List<TdxGeneralTimetableRecord>) = withContext(Dispatchers.IO) {
         file.writeText(json.encodeToString(items))
     }
 }

@@ -36,7 +36,7 @@ class SearchDashboardViewModel(
             origin = initialRoute.first,
             destination = initialRoute.second,
             travelDate = LocalDate.now(clock),
-            departureAfter = LocalTime.now(clock).withSecond(0).withNano(0),
+            departureAfter = defaultDepartureAfter(LocalDate.now(clock), clock),
             scheduledNotifications = bookingNotificationScheduler.scheduledNotifications(),
         ),
     )
@@ -49,8 +49,22 @@ class SearchDashboardViewModel(
     fun setOrigin(station: Station) = updateRoute(origin = station, destination = _uiState.value.destination)
     fun setDestination(station: Station) = updateRoute(origin = _uiState.value.origin, destination = station)
     fun swapRoute() = updateRoute(origin = _uiState.value.destination, destination = _uiState.value.origin)
-    fun setTravelDate(date: LocalDate) = updateAndSearch { copy(travelDate = date) }
-    fun setDepartureAfter(time: LocalTime) = updateAndSearch { copy(departureAfter = time) }
+    fun setTravelDate(date: LocalDate) = updateAndSearch {
+        copy(
+            travelDate = date,
+            departureAfter = if (isDepartureTimeUserSelected) {
+                departureAfter
+            } else {
+                defaultDepartureAfter(date, clock)
+            },
+        )
+    }
+    fun setDepartureAfter(time: LocalTime) = updateAndSearch {
+        copy(
+            departureAfter = time,
+            isDepartureTimeUserSelected = true,
+        )
+    }
     fun setFilter(filter: ResultFilter) = _uiState.update { it.copy(selectedFilter = filter) }
     fun setShowingScheduledNotifications(showing: Boolean) = _uiState.update { it.copy(showingScheduledNotifications = showing) }
     fun forceRefresh() = submit(forceRefresh = true)
@@ -104,4 +118,12 @@ data class SearchDashboardUiState(
     val loadState: SearchLoadState = SearchLoadState.Idle,
     val showingScheduledNotifications: Boolean = false,
     val scheduledNotifications: List<ScheduledBookingNotification> = emptyList(),
+    val isDepartureTimeUserSelected: Boolean = false,
 )
+
+internal fun defaultDepartureAfter(travelDate: LocalDate, clock: Clock): LocalTime =
+    if (travelDate == LocalDate.now(clock)) {
+        LocalTime.now(clock).withSecond(0).withNano(0)
+    } else {
+        LocalTime.MIDNIGHT
+    }

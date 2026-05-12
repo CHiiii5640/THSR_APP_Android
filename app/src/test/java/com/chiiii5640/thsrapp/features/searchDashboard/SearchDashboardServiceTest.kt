@@ -12,6 +12,8 @@ import com.chiiii5640.thsrapp.features.discounts.DiscountProvider
 import com.chiiii5640.thsrapp.features.discounts.DiscountResult
 import com.chiiii5640.thsrapp.features.seatAvailability.SeatAvailabilityProvider
 import com.chiiii5640.thsrapp.features.seatAvailability.SeatAvailabilityResult
+import com.chiiii5640.thsrapp.features.timetable.FallbackTimetableProvider
+import com.chiiii5640.thsrapp.features.timetable.FallbackTimetableResult
 import com.chiiii5640.thsrapp.features.timetable.TimetableProvider
 import com.chiiii5640.thsrapp.features.timetable.TimetableResult
 import com.chiiii5640.thsrapp.features.timetable.TimetableTrain
@@ -67,6 +69,61 @@ class SearchDashboardServiceTest {
         assertEquals(listOf(fastDiscounted), ResultFilter.Fastest.apply(listOf(slow, fastDiscounted)))
     }
 
+    @Test
+    fun skipsSeatAndDiscountCallsWhenNoTimetableResultsRemain() = runTest {
+        val seatProvider = FakeSeatProvider()
+        val discountProvider = FakeDiscountProvider()
+        val service = SearchDashboardService(
+            timetableProvider = FakeTimetableProvider(listOf(train(0))),
+            seatAvailabilityProvider = seatProvider,
+            discountProvider = discountProvider,
+            clock = clock,
+        )
+
+        val result = service.search(query().copy(departureAfter = LocalTime.of(23, 59)))
+
+        assertTrue(result.options.isEmpty())
+        assertTrue(seatProvider.called.not())
+        assertTrue(discountProvider.called.not())
+        assertEquals("seat skipped without timetable results", result.sourceStatuses[1].label)
+    }
+
+    @Test
+    fun usesFallbackTimetableProviderWhenPrimaryTimetableIsEmpty() = runTest {
+        val service = SearchDashboardService(
+            timetableProvider = FakeTimetableProvider(emptyList()),
+            seatAvailabilityProvider = FakeSeatProvider(),
+            discountProvider = FakeDiscountProvider(),
+            fallbackTimetableProvider = FakeFallbackTimetableProvider(listOf(train(1))),
+            clock = clock,
+        )
+
+        val result = service.search(query().copy(departureAfter = LocalTime.MIDNIGHT))
+
+        assertEquals(1, result.options.size)
+        assertEquals("1001", result.options.first().trainNo)
+        assertEquals("fallback", result.sourceStatuses.first().label)
+    }
+
+    @Test
+    fun surfacesFallbackStatusWhenPrimaryAndFallbackAreEmpty() = runTest {
+        val service = SearchDashboardService(
+            timetableProvider = FakeTimetableProvider(emptyList()),
+            seatAvailabilityProvider = FakeSeatProvider(),
+            discountProvider = FakeDiscountProvider(),
+            fallbackTimetableProvider = FakeFallbackTimetableProvider(
+                trains = emptyList(),
+                status = SourceStatus("discount feed timetable fallback empty", SourceState.Unavailable),
+            ),
+            clock = clock,
+        )
+
+        val result = service.search(query().copy(departureAfter = LocalTime.MIDNIGHT))
+
+        assertTrue(result.options.isEmpty())
+        assertEquals("discount feed timetable fallback empty", result.sourceStatuses.first().label)
+    }
+
     private fun query(): TripQuery = TripQuery(
         origin = Station.Taipei,
         destination = Station.Zuoying,
@@ -114,21 +171,36 @@ private class FakeTimetableProvider(
 
 private class FakeSeatProvider : SeatAvailabilityProvider {
     var lastSkip: Boolean? = null
+    var called: Boolean = false
 
     override suspend fun seats(
         query: TripQuery,
         trainNos: List<String>,
         skip: Boolean,
     ): SeatAvailabilityResult {
+        called = true
         lastSkip = skip
         return SeatAvailabilityResult(trainNos.associateWith { SeatStatus.Available }, SourceStatus("seat", SourceState.Live))
     }
 }
 
 private class FakeDiscountProvider : DiscountProvider {
+    var called: Boolean = false
+
     override suspend fun discounts(
         date: LocalDate,
         trains: List<TimetableTrain>,
         forceRefresh: Boolean,
-    ): DiscountResult = DiscountResult(emptyMap(), SourceStatus("discount", SourceState.Live))
+    ): DiscountResult {
+        called = true
+        return DiscountResult(emptyMap(), SourceStatus("discount", SourceState.Live))
+    }
+}
+
+private class FakeFallbackTimetableProvider(
+    private val trains: List<TimetableTrain>,
+    private val status: SourceStatus = SourceStatus("fallback", SourceState.Fallback),
+) : FallbackTimetableProvider {
+    override suspend fun trains(query: TripQuery, forceRefresh: Boolean): FallbackTimetableResult =
+        FallbackTimetableResult(trains, status)
 }

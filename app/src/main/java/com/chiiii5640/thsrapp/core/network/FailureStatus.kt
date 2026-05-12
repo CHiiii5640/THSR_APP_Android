@@ -1,5 +1,6 @@
 package com.chiiii5640.thsrapp.core.network
 
+import com.chiiii5640.thsrapp.core.logging.ThsrLog
 import com.chiiii5640.thsrapp.core.model.SourceState
 import com.chiiii5640.thsrapp.core.model.SourceStatus
 
@@ -9,6 +10,12 @@ fun unavailableStatus(defaultLabel: String, throwable: Throwable?): SourceStatus
         ?.firstOrNull()
         ?.trim()
         ?.takeIf { it.isNotEmpty() }
+
+    if (throwable != null) {
+        ThsrLog.e(defaultLabel, throwable)
+    } else {
+        ThsrLog.e(defaultLabel)
+    }
 
     return SourceStatus(
         label = if (message == null) defaultLabel else "$defaultLabel: $message",

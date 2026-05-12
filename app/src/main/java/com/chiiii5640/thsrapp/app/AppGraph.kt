@@ -29,11 +29,13 @@ class AppGraph(context: Context) {
     private val routePreferencesStore = RoutePreferencesStore(appContext)
     private val persistedGeneralTimetableStore = PersistedGeneralTimetableStore(appContext)
     private val bookingNotificationScheduler = BookingNotificationScheduler(appContext)
+    private val feedDiscountService = FeedDiscountService(httpClient, BuildConfig.DISCOUNT_FEED_URL)
 
     private val searchDashboardService = SearchDashboardService(
         timetableProvider = TdxTimetableProvider(tdxApi, persistedGeneralTimetableStore),
         seatAvailabilityProvider = TdxSeatAvailabilityProvider(tdxApi, clock),
-        discountProvider = FeedDiscountService(httpClient, BuildConfig.DISCOUNT_FEED_URL),
+        discountProvider = feedDiscountService,
+        fallbackTimetableProvider = feedDiscountService,
         clock = clock,
     )
 
