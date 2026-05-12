@@ -3,8 +3,11 @@ package com.chiiii5640.thsrapp.features.searchDashboard
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.chiiii5640.thsrapp.core.model.Station
+import com.chiiii5640.thsrapp.core.model.TrainOption
 import com.chiiii5640.thsrapp.core.model.TripQuery
 import com.chiiii5640.thsrapp.core.persistence.RoutePreferencesStore
+import com.chiiii5640.thsrapp.features.bookingNotifications.BookingNotificationScheduler
+import com.chiiii5640.thsrapp.features.bookingNotifications.ScheduledBookingNotification
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -12,11 +15,13 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.Clock
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.LocalTime
 
 class SearchDashboardViewModel(
     service: SearchDashboardService,
     private val routePreferencesStore: RoutePreferencesStore,
+    private val bookingNotificationScheduler: BookingNotificationScheduler,
     private val clock: Clock,
 ) : ViewModel() {
     private val initialRoute = routePreferencesStore.load()
@@ -32,6 +37,7 @@ class SearchDashboardViewModel(
             destination = initialRoute.second,
             travelDate = LocalDate.now(clock),
             departureAfter = LocalTime.now(clock).withSecond(0).withNano(0),
+            scheduledNotifications = bookingNotificationScheduler.scheduledNotifications(),
         ),
     )
     val uiState: StateFlow<SearchDashboardUiState> = _uiState.asStateFlow()
@@ -46,7 +52,17 @@ class SearchDashboardViewModel(
     fun setTravelDate(date: LocalDate) = updateAndSearch { copy(travelDate = date) }
     fun setDepartureAfter(time: LocalTime) = updateAndSearch { copy(departureAfter = time) }
     fun setFilter(filter: ResultFilter) = _uiState.update { it.copy(selectedFilter = filter) }
+    fun setShowingScheduledNotifications(showing: Boolean) = _uiState.update { it.copy(showingScheduledNotifications = showing) }
     fun forceRefresh() = submit(forceRefresh = true)
+    fun scheduleNotification(option: TrainOption, reminderAt: LocalDateTime) {
+        bookingNotificationScheduler.schedule(option, reminderAt)
+        refreshScheduledNotifications()
+    }
+
+    fun cancelNotification(id: String) {
+        bookingNotificationScheduler.cancel(id)
+        refreshScheduledNotifications()
+    }
 
     private fun updateRoute(origin: Station, destination: Station) {
         if (origin == destination) return
@@ -71,6 +87,12 @@ class SearchDashboardViewModel(
         )
         coordinator.search(query)
     }
+
+    private fun refreshScheduledNotifications() {
+        _uiState.update {
+            it.copy(scheduledNotifications = bookingNotificationScheduler.scheduledNotifications())
+        }
+    }
 }
 
 data class SearchDashboardUiState(
@@ -80,4 +102,6 @@ data class SearchDashboardUiState(
     val departureAfter: LocalTime,
     val selectedFilter: ResultFilter = ResultFilter.All,
     val loadState: SearchLoadState = SearchLoadState.Idle,
+    val showingScheduledNotifications: Boolean = false,
+    val scheduledNotifications: List<ScheduledBookingNotification> = emptyList(),
 )

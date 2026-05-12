@@ -11,6 +11,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.LocalTime
 
 class BookingNotificationSchedulerTest {
@@ -61,6 +62,32 @@ class BookingNotificationSchedulerTest {
         store.remove("booking-open-0803-2026-06-01-TPE-ZUY")
 
         assertTrue(store.list().isEmpty())
+    }
+
+    @Test
+    fun defaultReminderIsOneDayBeforeEstimatedOpeningAt2355() {
+        val option = TrainOption(
+            trainNo = "0803",
+            origin = Station.Taipei,
+            destination = Station.Zuoying,
+            travelDate = LocalDate.of(2026, 6, 1),
+            departureTime = LocalTime.of(8, 0),
+            arrivalTime = LocalTime.of(10, 0),
+            stops = emptyList(),
+            bookingStatus = BookingStatus.NotYetOpen,
+            seatStatus = SeatStatus.Unknown,
+            discounts = emptyList(),
+            source = TrainDataSource(
+                SourceStatus("timetable", SourceState.Live),
+                SourceStatus("seat", SourceState.Unavailable),
+                SourceStatus("discount", SourceState.Live),
+            ),
+        )
+
+        assertEquals(
+            LocalDateTime.of(2026, 5, 3, 23, 55),
+            BookingNotificationDefaults.reminderAt(option),
+        )
     }
 
     private fun scheduled(

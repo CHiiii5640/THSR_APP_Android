@@ -43,6 +43,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.chiiii5640.thsrapp.core.model.Station
 import com.chiiii5640.thsrapp.core.time.ThsrFormatters
+import com.chiiii5640.thsrapp.features.bookingNotifications.ScheduledNotificationsScreen
 import com.chiiii5640.thsrapp.features.trainResults.TrainOptionCard
 import java.time.Instant
 import java.time.LocalDate
@@ -59,8 +60,15 @@ fun SearchDashboardScreen(viewModel: SearchDashboardViewModel) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("高鐵查詢") },
+                title = { Text(if (state.showingScheduledNotifications) "已設定通知" else "高鐵查詢") },
                 actions = {
+                    TextButton(
+                        onClick = {
+                            viewModel.setShowingScheduledNotifications(!state.showingScheduledNotifications)
+                        },
+                    ) {
+                        Text(if (state.showingScheduledNotifications) "回查詢" else "通知列表")
+                    }
                     IconButton(onClick = viewModel::forceRefresh) {
                         Icon(Icons.Outlined.Refresh, contentDescription = "強制更新")
                     }
@@ -73,36 +81,59 @@ fun SearchDashboardScreen(viewModel: SearchDashboardViewModel) {
             verticalArrangement = Arrangement.spacedBy(10.dp),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
         ) {
-            item {
-                QueryFormSection(
-                    state = state,
-                    onOrigin = viewModel::setOrigin,
-                    onDestination = viewModel::setDestination,
-                    onTravelDate = viewModel::setTravelDate,
-                    onDepartureAfter = viewModel::setDepartureAfter,
-                    onSwap = viewModel::swapRoute,
-                    onForceRefresh = viewModel::forceRefresh,
-                )
-            }
-            item {
-                when (val loadState = state.loadState) {
-                    SearchLoadState.Idle -> Unit
-                    SearchLoadState.Loading -> LinearProgressIndicator(Modifier.fillMaxWidth())
-                    is SearchLoadState.Failed -> Text(loadState.message)
-                    is SearchLoadState.Loaded -> DataSourceSection(loadState.result)
+            if (state.showingScheduledNotifications) {
+                item {
+                    ScheduledNotificationsSection(
+                        state = state,
+                        onCancel = viewModel::cancelNotification,
+                    )
                 }
-            }
-            item {
-                ResultFilterBar(
-                    selected = state.selectedFilter,
-                    onSelected = viewModel::setFilter,
-                )
-            }
-            items(filtered, key = { it.trainNo }) { option ->
-                TrainOptionCard(option)
+            } else {
+                item {
+                    QueryFormSection(
+                        state = state,
+                        onOrigin = viewModel::setOrigin,
+                        onDestination = viewModel::setDestination,
+                        onTravelDate = viewModel::setTravelDate,
+                        onDepartureAfter = viewModel::setDepartureAfter,
+                        onSwap = viewModel::swapRoute,
+                        onForceRefresh = viewModel::forceRefresh,
+                    )
+                }
+                item {
+                    when (val loadState = state.loadState) {
+                        SearchLoadState.Idle -> Unit
+                        SearchLoadState.Loading -> LinearProgressIndicator(Modifier.fillMaxWidth())
+                        is SearchLoadState.Failed -> Text(loadState.message)
+                        is SearchLoadState.Loaded -> DataSourceSection(loadState.result)
+                    }
+                }
+                item {
+                    ResultFilterBar(
+                        selected = state.selectedFilter,
+                        onSelected = viewModel::setFilter,
+                    )
+                }
+                items(filtered, key = { it.trainNo }) { option ->
+                    TrainOptionCard(
+                        option = option,
+                        onScheduleNotification = viewModel::scheduleNotification,
+                    )
+                }
             }
         }
     }
+}
+
+@Composable
+private fun ScheduledNotificationsSection(
+    state: SearchDashboardUiState,
+    onCancel: (String) -> Unit,
+) {
+    ScheduledNotificationsScreen(
+        notifications = state.scheduledNotifications,
+        onCancel = onCancel,
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -167,7 +198,7 @@ private fun QueryFormSection(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun TravelDatePickerDialog(
+fun TravelDatePickerDialog(
     selectedDate: LocalDate,
     onDismiss: () -> Unit,
     onConfirm: (LocalDate) -> Unit,

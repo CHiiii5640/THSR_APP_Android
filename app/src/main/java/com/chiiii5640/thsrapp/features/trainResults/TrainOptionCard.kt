@@ -11,17 +11,31 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.chiiii5640.thsrapp.core.model.BookingStatus
 import com.chiiii5640.thsrapp.core.model.SeatStatus
 import com.chiiii5640.thsrapp.core.model.TrainOption
+import com.chiiii5640.thsrapp.features.bookingNotifications.BookingNotificationDefaults
+import com.chiiii5640.thsrapp.features.bookingNotifications.BookingNotificationSheet
 import com.chiiii5640.thsrapp.core.time.ThsrFormatters
+import java.time.LocalDateTime
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun TrainOptionCard(option: TrainOption) {
+fun TrainOptionCard(
+    option: TrainOption,
+    onScheduleNotification: (TrainOption, LocalDateTime) -> Unit,
+) {
+    var showNotificationSheet by remember(option.trainNo, option.travelDate, option.origin, option.destination) {
+        mutableStateOf(false)
+    }
+
     ElevatedCard(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -35,11 +49,25 @@ fun TrainOptionCard(option: TrainOption) {
                     AssistChip(onClick = {}, label = { Text(discount.label) })
                 }
                 if (option.bookingStatus == BookingStatus.NotYetOpen) {
-                    AssistChip(onClick = {}, label = { Text("通知") })
+                    AssistChip(
+                        onClick = { showNotificationSheet = true },
+                        label = { Text("通知") },
+                    )
                 }
             }
             StopTimeline(option.stops)
         }
+    }
+
+    if (showNotificationSheet) {
+        BookingNotificationSheet(
+            initialReminderAt = BookingNotificationDefaults.reminderAt(option),
+            onDismiss = { showNotificationSheet = false },
+            onConfirm = { reminderAt ->
+                showNotificationSheet = false
+                onScheduleNotification(option, reminderAt)
+            },
+        )
     }
 }
 

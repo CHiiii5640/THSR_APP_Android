@@ -8,6 +8,7 @@ import com.chiiii5640.thsrapp.core.network.UrlConnectionHttpClient
 import com.chiiii5640.thsrapp.core.persistence.PersistedGeneralTimetableStore
 import com.chiiii5640.thsrapp.core.persistence.RoutePreferencesStore
 import com.chiiii5640.thsrapp.core.time.ThsrClock
+import com.chiiii5640.thsrapp.features.bookingNotifications.BookingNotificationScheduler
 import com.chiiii5640.thsrapp.features.discounts.FeedDiscountService
 import com.chiiii5640.thsrapp.features.searchDashboard.SearchDashboardService
 import com.chiiii5640.thsrapp.features.searchDashboard.SearchDashboardViewModel
@@ -27,6 +28,7 @@ class AppGraph(context: Context) {
     private val tdxApi = TdxApiClient(httpClient, auth)
     private val routePreferencesStore = RoutePreferencesStore(appContext)
     private val persistedGeneralTimetableStore = PersistedGeneralTimetableStore(appContext)
+    private val bookingNotificationScheduler = BookingNotificationScheduler(appContext)
 
     private val searchDashboardService = SearchDashboardService(
         timetableProvider = TdxTimetableProvider(tdxApi, persistedGeneralTimetableStore),
@@ -39,6 +41,7 @@ class AppGraph(context: Context) {
         SearchDashboardViewModel(
             service = searchDashboardService,
             routePreferencesStore = routePreferencesStore,
+            bookingNotificationScheduler = bookingNotificationScheduler,
             clock = clock,
         )
 }
