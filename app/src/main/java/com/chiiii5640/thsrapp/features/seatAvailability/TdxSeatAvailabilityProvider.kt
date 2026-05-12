@@ -76,11 +76,18 @@ class TdxSeatAvailabilityProvider(
 }
 
 private fun TdxSeatStatusItem.toSeatStatus(): SeatStatus {
-    val combined = listOfNotNull(standardSeatStatus, businessSeatStatus).joinToString(" ")
+    return seatStatusFromCodes(standardSeatStatus, businessSeatStatus)
+}
+
+internal fun seatStatusFromCodes(vararg rawStatuses: String?): SeatStatus {
+    val normalized = rawStatuses
+        .mapNotNull { it?.trim()?.uppercase() }
+        .filter { it.isNotEmpty() }
+
     return when {
-        combined.contains("充足") || combined.contains("Available", ignoreCase = true) -> SeatStatus.Available
-        combined.contains("有限") || combined.contains("Limited", ignoreCase = true) -> SeatStatus.Limited
-        combined.contains("無") || combined.contains("Sold", ignoreCase = true) -> SeatStatus.SoldOut
+        normalized.any { it == "O" || it.contains("AVAILABLE") || it.contains("充足") } -> SeatStatus.Available
+        normalized.any { it == "L" || it.contains("LIMITED") || it.contains("有限") } -> SeatStatus.Limited
+        normalized.any { it == "X" || it.contains("SOLD") || it.contains("FULL") || it.contains("無") } -> SeatStatus.SoldOut
         else -> SeatStatus.Unknown
     }
 }

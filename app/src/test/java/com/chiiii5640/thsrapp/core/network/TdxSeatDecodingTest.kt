@@ -21,8 +21,8 @@ class TdxSeatDecodingTest {
                   "TrainNo": "0803",
                   "OriginStationID": "1000",
                   "DestinationStationID": "1043",
-                  "StandardSeatStatus": "Available",
-                  "BusinessSeatStatus": "Limited"
+                  "StandardSeatStatus": "O",
+                  "BusinessSeatStatus": "L"
                 }
               ]
             }
@@ -48,8 +48,8 @@ class TdxSeatDecodingTest {
                     "StopStations": [
                       {
                         "StationID": "1043",
-                        "StandardSeatStatus": "Available",
-                        "BusinessSeatStatus": "Sold Out"
+                        "StandardSeatStatus": "O",
+                        "BusinessSeatStatus": "X"
                       }
                     ]
                   }
@@ -74,11 +74,11 @@ class TdxSeatDecodingTest {
                 {
                   "TrainNo": "0803",
                   "Direction": 0,
-                  "StopStations": [
+                    "StopStations": [
                     {
                       "StationID": "1043",
-                      "StandardSeatStatus": "Available",
-                      "BusinessSeatStatus": "Sold Out"
+                      "StandardSeatStatus": "O",
+                      "BusinessSeatStatus": "X"
                     }
                   ]
                 }
