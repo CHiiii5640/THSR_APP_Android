@@ -2,54 +2,58 @@ package com.chiiii5640.thsrapp.features.searchDashboard
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.Language
+import androidx.compose.material.icons.outlined.LocalOffer
 import androidx.compose.material.icons.outlined.NotificationsNone
-import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.SwapVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimeInput
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -59,8 +63,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.text.lerp
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -70,18 +74,18 @@ import com.chiiii5640.thsrapp.core.model.Station
 import com.chiiii5640.thsrapp.core.time.ThsrFormatters
 import com.chiiii5640.thsrapp.features.bookingNotifications.ScheduledNotificationsScreen
 import com.chiiii5640.thsrapp.features.trainResults.TrainOptionCard
+import com.chiiii5640.thsrapp.ui.theme.ThsrDesignTokens
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
 
-private val PageBackground = Color(0xFF050505)
-private val PanelBackground = Color(0xFF1C1C1E)
-private val DividerColor = Color(0xFF2C2C2E)
-private val SecondaryTextColor = Color(0xFF8E8E93)
-private val AccentColor = Color(0xFF0A84FF)
-private val SuccessColor = Color(0xFF30D158)
-private val WarningColor = Color(0xFFFF9F0A)
+private enum class SourceRowKind {
+    Timetable,
+    SeatAvailability,
+    Discount,
+    Attribution,
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -89,55 +93,76 @@ fun SearchDashboardScreen(viewModel: SearchDashboardViewModel) {
     val state by viewModel.uiState.collectAsState()
     val result = (state.loadState as? SearchLoadState.Loaded)?.result
     val filtered = state.selectedFilter.apply(result?.options.orEmpty())
+    val tokens = ThsrDesignTokens
+    val listState = rememberLazyListState()
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val collapsedFraction = scrollBehavior.state.collapsedFraction.coerceIn(0f, 1f)
+    val topTitleStyle = lerp(tokens.typography.largeTitle, tokens.typography.navTitle, collapsedFraction)
+    val isCollapsed by remember {
+        derivedStateOf {
+            listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 6
+        }
+    }
 
     Scaffold(
-        containerColor = PageBackground,
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        containerColor = tokens.colors.backgroundColor,
         topBar = {
-            TopAppBar(
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent,
-                    titleContentColor = Color.White,
-                    actionIconContentColor = AccentColor,
+            LargeTopAppBar(
+                colors = TopAppBarDefaults.largeTopAppBarColors(
+                    containerColor = tokens.colors.backgroundColor,
+                    scrolledContainerColor = tokens.colors.backgroundColor,
+                    titleContentColor = tokens.colors.textPrimary,
+                    actionIconContentColor = tokens.colors.primaryBlue,
+                    navigationIconContentColor = tokens.colors.textSecondary,
                 ),
                 title = {
                     Text(
                         text = if (state.showingScheduledNotifications) "通知列表" else "高鐵開票看板",
-                        fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.headlineSmall,
+                        style = topTitleStyle,
+                        color = tokens.colors.textPrimary,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = if (isCollapsed) TextAlign.Center else TextAlign.Start,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                 },
                 navigationIcon = {
                     IconButton(
-                        onClick = {
-                            viewModel.setShowingScheduledNotifications(!state.showingScheduledNotifications)
-                        },
+                        onClick = { viewModel.setShowingScheduledNotifications(!state.showingScheduledNotifications) },
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.NotificationsNone,
                             contentDescription = if (state.showingScheduledNotifications) "回查詢" else "通知列表",
-                            tint = if (state.showingScheduledNotifications) Color.White else SecondaryTextColor,
                         )
                     }
                 },
                 actions = {
                     IconButton(onClick = viewModel::forceRefresh) {
-                        Icon(Icons.Outlined.Search, contentDescription = "重新查詢")
-                    }
-                    IconButton(onClick = viewModel::forceRefresh) {
-                        Icon(Icons.Outlined.Refresh, contentDescription = "強制更新")
+                        Icon(
+                            imageVector = Icons.Outlined.Search,
+                            contentDescription = "重新查詢",
+                            tint = tokens.colors.primaryBlue,
+                        )
                     }
                 },
+                scrollBehavior = scrollBehavior,
             )
         },
     ) { padding ->
         LazyColumn(
+            state = listState,
             modifier = Modifier
+                .fillMaxHeight()
                 .padding(padding)
-                .background(PageBackground),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = PaddingValues(start = 16.dp, top = 4.dp, end = 16.dp, bottom = 20.dp),
+                .background(tokens.colors.backgroundColor),
+            verticalArrangement = Arrangement.spacedBy(tokens.spacing.spacing16),
+            contentPadding = PaddingValues(
+                start = tokens.spacing.spacing16,
+                top = tokens.spacing.spacing8,
+                end = tokens.spacing.spacing16,
+                bottom = tokens.spacing.spacing24,
+            ),
         ) {
             if (state.showingScheduledNotifications) {
                 item {
@@ -158,35 +183,33 @@ fun SearchDashboardScreen(viewModel: SearchDashboardViewModel) {
                         onForceRefresh = viewModel::forceRefresh,
                     )
                 }
-                item {
-                    when (val loadState = state.loadState) {
-                        SearchLoadState.Idle -> EmptyHint("設定條件後即可查詢班次")
-                        SearchLoadState.Loading -> LoadingSection()
-                        is SearchLoadState.Failed -> ErrorSection(loadState.message)
-                        is SearchLoadState.Loaded -> DataSourceSection(loadState.result)
+                when (val loadState = state.loadState) {
+                    SearchLoadState.Idle -> item { EmptyHint("設定查詢條件後，即可查看當天班次與資料來源狀態。") }
+                    SearchLoadState.Loading -> item { LoadingSection() }
+                    is SearchLoadState.Failed -> item { ErrorSection(loadState.message) }
+                    is SearchLoadState.Loaded -> {
+                        item { DataSourceSection(loadState.result) }
+                        item {
+                            ResultFilterBar(
+                                selected = state.selectedFilter,
+                                onSelected = viewModel::setFilter,
+                            )
+                        }
+                        item {
+                            Text(
+                                text = "${filtered.size} 班符合條件",
+                                color = tokens.colors.textSecondary,
+                                style = tokens.typography.sectionLabel,
+                                modifier = Modifier.padding(horizontal = tokens.spacing.spacing4),
+                            )
+                        }
+                        items(filtered, key = { "${it.trainNo}-${it.departureTime}" }) { option ->
+                            TrainOptionCard(
+                                option = option,
+                                onScheduleNotification = viewModel::scheduleNotification,
+                            )
+                        }
                     }
-                }
-                item {
-                    ResultFilterBar(
-                        selected = state.selectedFilter,
-                        onSelected = viewModel::setFilter,
-                    )
-                }
-                if (result != null) {
-                    item {
-                        Text(
-                            text = "${filtered.size} 班符合條件",
-                            color = SecondaryTextColor,
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.padding(horizontal = 8.dp),
-                        )
-                    }
-                }
-                items(filtered, key = { "${it.trainNo}-${it.departureTime}" }) { option ->
-                    TrainOptionCard(
-                        option = option,
-                        onScheduleNotification = viewModel::scheduleNotification,
-                    )
                 }
             }
         }
@@ -198,12 +221,13 @@ private fun ScheduledNotificationsSection(
     state: SearchDashboardUiState,
     onCancel: (String) -> Unit,
 ) {
+    val tokens = ThsrDesignTokens
     Surface(
-        color = PanelBackground,
-        shape = RoundedCornerShape(20.dp),
-        tonalElevation = 0.dp,
+        color = tokens.colors.surfaceColor,
+        shape = RoundedCornerShape(tokens.radii.cornerRadiusLarge),
+        tonalElevation = tokens.spacing.spacing4,
     ) {
-        Column(Modifier.padding(vertical = 8.dp)) {
+        Column(Modifier.padding(vertical = tokens.spacing.spacing8)) {
             ScheduledNotificationsScreen(
                 notifications = state.scheduledNotifications,
                 onCancel = onCancel,
@@ -223,76 +247,78 @@ private fun QueryFormSection(
     onSwap: () -> Unit,
     onForceRefresh: () -> Unit,
 ) {
+    val tokens = ThsrDesignTokens
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
 
     Surface(
-        color = PanelBackground,
-        shape = RoundedCornerShape(20.dp),
-        tonalElevation = 0.dp,
+        color = tokens.colors.surfaceColor,
+        shape = RoundedCornerShape(tokens.radii.cornerRadiusLarge),
+        tonalElevation = tokens.spacing.spacing4,
     ) {
         Column {
-            QueryFieldRow(
+            QueryValueRow(
                 label = "起站",
-                content = {
-                    StationDropdown(
+                value = state.origin.localName,
+                onClick = null,
+                trailing = {
+                    StationValueMenu(
                         selected = state.origin,
                         onSelected = onOrigin,
                     )
                 },
             )
             QueryDivider()
-            QueryFieldRow(
+            QueryValueRow(
                 label = "迄站",
-                content = {
-                    StationDropdown(
+                value = state.destination.localName,
+                onClick = null,
+                trailing = {
+                    StationValueMenu(
                         selected = state.destination,
                         onSelected = onDestination,
                     )
                 },
             )
             QueryDivider()
-            QueryActionRow(
-                icon = {
-                    Icon(
-                        imageVector = Icons.Outlined.SwapVert,
-                        contentDescription = "交換起迄站",
-                        tint = AccentColor,
-                    )
-                },
-                text = "交換起迄站",
-                onClick = onSwap,
-            )
+            QueryActionRow(onClick = onSwap)
             QueryDivider()
-            QueryFieldRow(
+            QueryValueRow(
                 label = "搭乘日期",
-                content = {
-                    PickerValue(
-                        value = ThsrFormatters.date(state.travelDate),
-                        onClick = { showDatePicker = true },
-                    )
-                },
+                value = ThsrFormatters.displayDate(state.travelDate),
+                onClick = { showDatePicker = true },
             )
             QueryDivider()
-            QueryFieldRow(
+            QueryValueRow(
                 label = "出發時間",
-                content = {
-                    PickerValue(
-                        value = ThsrFormatters.time(state.departureAfter),
-                        onClick = { showTimePicker = true },
-                    )
-                },
+                value = ThsrFormatters.pickerTime(state.departureAfter),
+                onClick = { showTimePicker = true },
             )
-            QueryDivider()
-            Button(
-                onClick = onForceRefresh,
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(12.dp),
-                shape = RoundedCornerShape(14.dp),
-                contentPadding = PaddingValues(vertical = 14.dp),
+                    .padding(
+                        horizontal = tokens.spacing.spacing16,
+                        vertical = tokens.spacing.spacing12,
+                    ),
             ) {
-                Text("強制更新最新資料", style = MaterialTheme.typography.titleMedium)
+                Button(
+                    onClick = onForceRefresh,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(tokens.sizes.buttonHeight),
+                    shape = RoundedCornerShape(tokens.radii.cornerRadiusSmall),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = tokens.colors.primaryBlue,
+                        contentColor = tokens.colors.textPrimary,
+                    ),
+                    elevation = null,
+                ) {
+                    Text(
+                        text = "強制更新最新資料",
+                        style = tokens.typography.action,
+                    )
+                }
             }
         }
     }
@@ -321,112 +347,101 @@ private fun QueryFormSection(
 }
 
 @Composable
-private fun QueryFieldRow(
+private fun QueryValueRow(
     label: String,
-    content: @Composable () -> Unit,
+    value: String,
+    onClick: (() -> Unit)?,
+    trailing: (@Composable () -> Unit)? = null,
 ) {
+    val tokens = ThsrDesignTokens
+    val interactionSource = remember { MutableInteractionSource() }
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+            .height(tokens.sizes.formRowHeight)
+            .clickable(
+                enabled = onClick != null,
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = { onClick?.invoke() },
+            )
+            .padding(horizontal = tokens.spacing.spacing20),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text(
             text = label,
-            color = Color.White,
-            style = MaterialTheme.typography.headlineSmall,
+            color = tokens.colors.textPrimary,
+            style = tokens.typography.formLabel,
             modifier = Modifier.weight(1f),
         )
-        Box(modifier = Modifier.weight(1.3f), contentAlignment = Alignment.CenterEnd) {
-            content()
+        if (trailing != null) {
+            trailing()
+        } else {
+            FormValue(value = value)
         }
     }
 }
 
 @Composable
 private fun QueryActionRow(
-    icon: @Composable () -> Unit,
-    text: String,
     onClick: () -> Unit,
 ) {
+    val tokens = ThsrDesignTokens
+    val interactionSource = remember { MutableInteractionSource() }
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+            .height(tokens.sizes.formRowHeight)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick,
+            )
+            .padding(horizontal = tokens.spacing.spacing20),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(tokens.spacing.spacing12),
     ) {
-        icon()
+        Icon(
+            imageVector = Icons.Outlined.SwapVert,
+            contentDescription = "交換起迄站",
+            tint = tokens.colors.primaryBlue,
+        )
         Text(
-            text = text,
-            color = AccentColor,
-            style = MaterialTheme.typography.headlineSmall,
+            text = "交換起迄站",
+            color = tokens.colors.primaryBlue,
+            style = tokens.typography.formLabel,
         )
     }
 }
 
 @Composable
 private fun QueryDivider() {
-    Spacer(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(1.dp)
-            .background(DividerColor),
-    )
+    HorizontalDivider(color = ThsrDesignTokens.colors.dividerColor)
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun StationDropdown(
+private fun StationValueMenu(
     selected: Station,
     onSelected: (Station) -> Unit,
 ) {
     var expanded by rememberSaveable(selected) { mutableStateOf(false) }
-
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = !expanded },
-    ) {
-        OutlinedTextField(
+    Box {
+        FormValue(
             value = selected.localName,
-            onValueChange = {},
-            readOnly = true,
-            textStyle = MaterialTheme.typography.titleLarge.copy(
-                color = Color.White,
-                textAlign = TextAlign.End,
-            ),
-            modifier = Modifier
-                .menuAnchor()
-                .width(122.dp),
-            shape = RoundedCornerShape(12.dp),
-            colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(
-                unfocusedContainerColor = Color(0xFF2C2C2E),
-                focusedContainerColor = Color(0xFF2C2C2E),
-                unfocusedBorderColor = Color.Transparent,
-                focusedBorderColor = AccentColor,
-                unfocusedTextColor = Color.White,
-                focusedTextColor = Color.White,
-                unfocusedTrailingIconColor = SecondaryTextColor,
-                focusedTrailingIconColor = AccentColor,
-            ),
-            trailingIcon = {
-                ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
-            },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
-            singleLine = true,
+            onClick = { expanded = true },
         )
-        ExposedDropdownMenu(
+        DropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
+            modifier = Modifier.background(ThsrDesignTokens.colors.surfaceColor),
         ) {
             Station.entries.forEach { station ->
                 DropdownMenuItem(
                     text = {
                         Text(
                             text = station.localName,
-                            color = if (station == selected) AccentColor else Color.White,
+                            color = if (station == selected) ThsrDesignTokens.colors.primaryBlue else ThsrDesignTokens.colors.textPrimary,
+                            style = ThsrDesignTokens.typography.bodyStrong,
                         )
                     },
                     onClick = {
@@ -440,28 +455,40 @@ private fun StationDropdown(
 }
 
 @Composable
-private fun PickerValue(
+private fun FormValue(
     value: String,
-    onClick: () -> Unit,
+    onClick: (() -> Unit)? = null,
 ) {
+    val tokens = ThsrDesignTokens
+    val interactionSource = remember { MutableInteractionSource() }
     Row(
         modifier = Modifier
-            .clip(RoundedCornerShape(14.dp))
-            .background(Color(0xFF2C2C2E))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 10.dp),
+            .clip(RoundedCornerShape(tokens.radii.cornerRadiusSmall))
+            .clickable(
+                enabled = onClick != null,
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = { onClick?.invoke() },
+            )
+            .padding(
+                horizontal = tokens.spacing.spacing8,
+                vertical = tokens.spacing.spacing4,
+            ),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(tokens.spacing.spacing4),
     ) {
         Text(
             text = value,
-            color = Color.White,
-            style = MaterialTheme.typography.titleMedium,
+            color = tokens.colors.textSecondary,
+            style = tokens.typography.formValue,
+            textAlign = TextAlign.End,
+            maxLines = 1,
         )
         Icon(
             imageVector = Icons.Outlined.KeyboardArrowDown,
             contentDescription = null,
-            tint = SecondaryTextColor,
+            tint = tokens.colors.textTertiary,
+            modifier = Modifier.size(tokens.sizes.disclosureIcon),
         )
     }
 }
@@ -487,12 +514,12 @@ fun TravelDatePickerDialog(
                     onConfirm(Instant.ofEpochMilli(millis).atZone(zone).toLocalDate())
                 },
             ) {
-                Text("確定")
+                Text("確定", color = ThsrDesignTokens.colors.primaryBlue)
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("取消")
+                Text("取消", color = ThsrDesignTokens.colors.textSecondary)
             }
         },
     ) {
@@ -517,16 +544,14 @@ private fun DepartureTimePickerDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
             TextButton(
-                onClick = {
-                    onConfirm(LocalTime.of(timePickerState.hour, timePickerState.minute))
-                },
+                onClick = { onConfirm(LocalTime.of(timePickerState.hour, timePickerState.minute)) },
             ) {
-                Text("確定")
+                Text("確定", color = ThsrDesignTokens.colors.primaryBlue)
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("取消")
+                Text("取消", color = ThsrDesignTokens.colors.textSecondary)
             }
         },
         text = {
@@ -537,82 +562,93 @@ private fun DepartureTimePickerDialog(
 
 @Composable
 private fun DataSourceSection(result: SearchResult) {
-    Surface(
-        color = PanelBackground,
-        shape = RoundedCornerShape(20.dp),
-        tonalElevation = 0.dp,
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+    val tokens = ThsrDesignTokens
+    val rows = result.sourceStatusRows()
+    Column(verticalArrangement = Arrangement.spacedBy(tokens.spacing.spacing8)) {
+        Text(
+            text = "資料來源",
+            color = tokens.colors.textSecondary,
+            style = tokens.typography.sectionLabel,
+            modifier = Modifier.padding(horizontal = tokens.spacing.spacing4),
+        )
+        Surface(
+            color = tokens.colors.surfaceColor,
+            shape = RoundedCornerShape(tokens.radii.cornerRadiusLarge),
+            tonalElevation = tokens.spacing.spacing4,
         ) {
-            Text(
-                text = "資料來源",
-                color = SecondaryTextColor,
-                style = MaterialTheme.typography.titleMedium,
-            )
-            result.sourceStatuses.forEach { status ->
-                SourceStatusRow(status)
+            Column {
+                rows.forEachIndexed { index, row ->
+                    DataSourceRow(row)
+                    if (index != rows.lastIndex) {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(start = tokens.spacing.spacing20),
+                            color = tokens.colors.dividerColor,
+                        )
+                    }
+                }
             }
-            Text(
-                text = "本次結果會優先使用 TDX，若官方來源缺資料才退回快取或 fallback。",
-                color = SecondaryTextColor,
-                style = MaterialTheme.typography.bodyMedium,
-            )
         }
-    }
-}
-
-@Composable
-private fun SourceStatusRow(status: SourceStatus) {
-    val indicatorColor = when (status.state) {
-        SourceState.Live -> SuccessColor
-        SourceState.Cache -> AccentColor
-        SourceState.Fallback -> WarningColor
-        SourceState.Unavailable -> SecondaryTextColor
-    }
-    val stateLabel = when (status.state) {
-        SourceState.Live -> "即時"
-        SourceState.Cache -> "快取"
-        SourceState.Fallback -> "替代"
-        SourceState.Unavailable -> "不可用"
-    }
-
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            modifier = Modifier
-                .width(10.dp)
-                .height(10.dp)
-                .clip(RoundedCornerShape(5.dp))
-                .background(indicatorColor),
-        )
-        Spacer(Modifier.width(12.dp))
         Text(
-            text = status.label,
-            color = Color.White,
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.weight(1f),
-        )
-        Text(
-            text = stateLabel,
-            color = SecondaryTextColor,
-            style = MaterialTheme.typography.bodyMedium,
+            text = "班次會優先使用 TDX 時刻表與座位資料；若官方來源缺資料，才會退回快取或 fallback。",
+            color = tokens.colors.textSecondary,
+            style = tokens.typography.body,
+            modifier = Modifier.padding(horizontal = tokens.spacing.spacing4),
         )
     }
 }
 
 @Composable
-private fun ResultFilterBar(selected: ResultFilter, onSelected: (ResultFilter) -> Unit) {
+private fun DataSourceRow(row: DashboardSourceRow) {
+    val tokens = ThsrDesignTokens
     Row(
         modifier = Modifier
-            .horizontalScroll(rememberScrollState())
-            .padding(horizontal = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+            .fillMaxWidth()
+            .height(tokens.sizes.sourceRowHeight)
+            .padding(horizontal = tokens.spacing.spacing20),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        ResultFilter.entries.forEach { filter ->
+        Icon(
+            imageVector = row.icon,
+            contentDescription = null,
+            tint = row.tint,
+            modifier = Modifier.size(tokens.spacing.spacing24),
+        )
+        Spacer(Modifier.width(tokens.spacing.spacing12))
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(tokens.spacing.spacing4)) {
+            Text(
+                text = row.title,
+                color = if (row.kind == SourceRowKind.Discount) tokens.colors.primaryBlue else tokens.colors.textPrimary,
+                style = tokens.typography.bodyStrong,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = row.subtitle,
+                color = tokens.colors.textSecondary,
+                style = tokens.typography.caption,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Text(
+            text = row.stateLabel,
+            color = tokens.colors.textTertiary,
+            style = tokens.typography.captionStrong,
+        )
+    }
+}
+
+@Composable
+private fun ResultFilterBar(
+    selected: ResultFilter,
+    onSelected: (ResultFilter) -> Unit,
+) {
+    val tokens = ThsrDesignTokens
+    LazyRow(
+        contentPadding = PaddingValues(horizontal = tokens.spacing.spacing4),
+        horizontalArrangement = Arrangement.spacedBy(tokens.spacing.spacing12),
+    ) {
+        items(ResultFilter.entries, key = { it.name }) { filter ->
             FilterPill(
                 label = filter.label,
                 selected = filter == selected,
@@ -628,37 +664,58 @@ private fun FilterPill(
     selected: Boolean,
     onClick: () -> Unit,
 ) {
+    val tokens = ThsrDesignTokens
+    val interactionSource = remember { MutableInteractionSource() }
     Surface(
-        modifier = Modifier.clickable(onClick = onClick),
-        color = if (selected) AccentColor else Color(0xFF161618),
-        shape = RoundedCornerShape(20.dp),
+        modifier = Modifier
+            .height(tokens.sizes.chipHeight)
+            .clip(RoundedCornerShape(tokens.radii.chipRadius))
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick,
+            ),
+        color = if (selected) tokens.colors.primaryBlue else tokens.colors.surfaceColor,
+        shape = RoundedCornerShape(tokens.radii.chipRadius),
         tonalElevation = 0.dp,
     ) {
-        Text(
-            text = label,
-            color = Color.White,
-            style = MaterialTheme.typography.titleSmall,
-            modifier = Modifier.padding(horizontal = 18.dp, vertical = 11.dp),
-        )
+        Box(
+            modifier = Modifier.padding(
+                horizontal = tokens.spacing.spacing20,
+                vertical = tokens.spacing.spacing12,
+            ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = label,
+                color = if (selected) tokens.colors.textPrimary else tokens.colors.textSecondary,
+                style = tokens.typography.pill,
+            )
+        }
     }
 }
 
 @Composable
 private fun LoadingSection() {
+    val tokens = ThsrDesignTokens
     Surface(
-        color = PanelBackground,
-        shape = RoundedCornerShape(20.dp),
-        tonalElevation = 0.dp,
+        color = tokens.colors.surfaceColor,
+        shape = RoundedCornerShape(tokens.radii.cornerRadiusLarge),
+        tonalElevation = tokens.spacing.spacing4,
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.padding(tokens.spacing.spacing20),
+            verticalArrangement = Arrangement.spacedBy(tokens.spacing.spacing12),
         ) {
-            Text("正在更新班次與座位資料", color = Color.White, style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = "正在更新班次與座位資料",
+                color = tokens.colors.textPrimary,
+                style = tokens.typography.bodyStrong,
+            )
             LinearProgressIndicator(
                 modifier = Modifier.fillMaxWidth(),
-                color = AccentColor,
-                trackColor = DividerColor,
+                color = tokens.colors.primaryBlue,
+                trackColor = tokens.colors.elevatedSurfaceColor,
             )
         }
     }
@@ -666,31 +723,121 @@ private fun LoadingSection() {
 
 @Composable
 private fun ErrorSection(message: String) {
+    val tokens = ThsrDesignTokens
     Surface(
-        color = PanelBackground,
-        shape = RoundedCornerShape(20.dp),
-        tonalElevation = 0.dp,
+        color = tokens.colors.surfaceColor,
+        shape = RoundedCornerShape(tokens.radii.cornerRadiusLarge),
+        tonalElevation = tokens.spacing.spacing4,
     ) {
         Text(
             text = message,
-            color = WarningColor,
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.padding(16.dp),
+            color = tokens.colors.warningOrange,
+            style = tokens.typography.body,
+            modifier = Modifier.padding(tokens.spacing.spacing20),
         )
     }
 }
 
 @Composable
 private fun EmptyHint(message: String) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = PanelBackground),
-        shape = RoundedCornerShape(20.dp),
+    val tokens = ThsrDesignTokens
+    Surface(
+        color = tokens.colors.surfaceColor,
+        shape = RoundedCornerShape(tokens.radii.cornerRadiusLarge),
+        tonalElevation = tokens.spacing.spacing4,
     ) {
         Text(
             text = message,
-            color = SecondaryTextColor,
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.padding(16.dp),
+            color = tokens.colors.textSecondary,
+            style = tokens.typography.body,
+            modifier = Modifier.padding(tokens.spacing.spacing20),
         )
     }
+}
+
+private data class DashboardSourceRow(
+    val kind: SourceRowKind,
+    val title: String,
+    val subtitle: String,
+    val stateLabel: String,
+    val icon: androidx.compose.ui.graphics.vector.ImageVector,
+    val tint: Color,
+)
+
+private fun SearchResult.sourceStatusRows(): List<DashboardSourceRow> {
+    val tokens = ThsrDesignTokens
+    val timetableStatus = sourceStatuses.getOrNull(0) ?: SourceStatus("timetable unavailable", SourceState.Unavailable)
+    val seatStatus = sourceStatuses.getOrNull(1) ?: SourceStatus("seat unavailable", SourceState.Unavailable)
+    val discountStatus = sourceStatuses.getOrNull(2) ?: SourceStatus("discount unavailable", SourceState.Unavailable)
+
+    return listOf(
+        DashboardSourceRow(
+            kind = SourceRowKind.Timetable,
+            title = "時刻表",
+            subtitle = timetableStatus.localizedSubtitle(),
+            stateLabel = timetableStatus.stateLabel(),
+            icon = if (timetableStatus.state == SourceState.Unavailable) Icons.Outlined.Schedule else Icons.Outlined.CheckCircle,
+            tint = timetableStatus.tint(),
+        ),
+        DashboardSourceRow(
+            kind = SourceRowKind.SeatAvailability,
+            title = "座位狀態",
+            subtitle = seatStatus.localizedSubtitle(),
+            stateLabel = seatStatus.stateLabel(),
+            icon = if (seatStatus.state == SourceState.Unavailable) Icons.Outlined.Schedule else Icons.Outlined.CheckCircle,
+            tint = seatStatus.tint(),
+        ),
+        DashboardSourceRow(
+            kind = SourceRowKind.Discount,
+            title = "優惠",
+            subtitle = discountStatus.localizedSubtitle(),
+            stateLabel = discountStatus.stateLabel(),
+            icon = Icons.Outlined.LocalOffer,
+            tint = tokens.colors.primaryBlue,
+        ),
+        DashboardSourceRow(
+            kind = SourceRowKind.Attribution,
+            title = "資料來源",
+            subtitle = timetableStatus.localizedSourceAttribution(),
+            stateLabel = timetableStatus.stateLabel(),
+            icon = Icons.Outlined.Language,
+            tint = tokens.colors.primaryBlue,
+        ),
+    )
+}
+
+private fun SourceStatus.stateLabel(): String = when (state) {
+    SourceState.Live -> "即時"
+    SourceState.Cache -> "快取"
+    SourceState.Fallback -> "替代"
+    SourceState.Unavailable -> "不可用"
+}
+
+private fun SourceStatus.localizedSubtitle(): String = when {
+    label.contains("DailyTimetable", ignoreCase = true) -> "TDX 高鐵每日時刻表已取得"
+    label.contains("GeneralTimetable", ignoreCase = true) && state == SourceState.Fallback -> "使用 GeneralTimetable fallback"
+    label.contains("persisted", ignoreCase = true) -> "使用本機保存的 GeneralTimetable"
+    label.contains("seat availability live", ignoreCase = true) -> "TDX 座位狀態已取得"
+    label.contains("seat availability cache", ignoreCase = true) -> "座位狀態使用快取"
+    label.contains("seat APIs skipped", ignoreCase = true) -> "fallback timetable 不查座位 API"
+    label.contains("cooldown", ignoreCase = true) -> "座位 API 正在冷卻中"
+    label.contains("discount feed", ignoreCase = true) -> "優惠快取已取得"
+    label.contains("timetable fallback", ignoreCase = true) -> "優惠 feed fallback timetable"
+    label.contains("unavailable", ignoreCase = true) -> "目前無法取得資料"
+    else -> label
+}
+
+private fun SourceStatus.localizedSourceAttribution(): String = when {
+    label.contains("DailyTimetable", ignoreCase = true) -> "TDX 高鐵每日時刻表"
+    label.contains("GeneralTimetable", ignoreCase = true) -> "TDX GeneralTimetable"
+    label.contains("persisted", ignoreCase = true) -> "本機保存的 GeneralTimetable"
+    label.contains("discount feed", ignoreCase = true) -> "GitHub Pages discount feed"
+    else -> label
+}
+
+private fun SourceStatus.tint(): Color = when (state) {
+    SourceState.Live -> ThsrDesignTokens.colors.successGreen
+    SourceState.Cache -> ThsrDesignTokens.colors.primaryBlue
+    SourceState.Fallback -> ThsrDesignTokens.colors.warningOrange
+    SourceState.Unavailable -> ThsrDesignTokens.colors.textTertiary
 }

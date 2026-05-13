@@ -10,51 +10,46 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.chiiii5640.thsrapp.core.model.TimelineStop
 import com.chiiii5640.thsrapp.core.time.ThsrFormatters
-
-private val TimelineBackground = Color(0xFF151517)
-private val TimelineLine = Color(0xFF3A3A3C)
-private val TimelineNode = Color(0xFF0A84FF)
-private val TimelineSecondaryText = Color(0xFF8E8E93)
+import com.chiiii5640.thsrapp.ui.theme.ThsrDesignTokens
 
 @Composable
 fun StopTimeline(stops: List<TimelineStop>) {
+    val tokens = ThsrDesignTokens
     Surface(
-        color = TimelineBackground,
-        shape = RoundedCornerShape(12.dp),
+        color = tokens.colors.surfaceColor,
+        shape = RoundedCornerShape(tokens.radii.cornerRadiusMedium),
         tonalElevation = 0.dp,
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+                .padding(vertical = tokens.spacing.spacing12),
+            verticalArrangement = Arrangement.spacedBy(tokens.spacing.spacing8),
         ) {
             Text(
                 text = "左右滑動查看完整停靠站",
-                color = TimelineSecondaryText,
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(horizontal = 10.dp),
+                color = tokens.colors.textSecondary,
+                style = tokens.typography.caption,
+                modifier = Modifier.padding(horizontal = tokens.spacing.spacing16),
             )
             Row(
                 modifier = Modifier
                     .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 10.dp),
-                horizontalArrangement = Arrangement.spacedBy(0.dp),
+                    .padding(horizontal = tokens.spacing.spacing16),
                 verticalAlignment = Alignment.Top,
             ) {
                 stops.forEachIndexed { index, stop ->
@@ -73,42 +68,42 @@ private fun StopNode(
     stop: TimelineStop,
     isLast: Boolean,
 ) {
+    val tokens = ThsrDesignTokens
     Column(
-        modifier = Modifier.width(82.dp),
+        modifier = Modifier.width(96.dp),
         horizontalAlignment = Alignment.Start,
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        verticalArrangement = Arrangement.spacedBy(tokens.spacing.spacing8),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier
-                    .width(8.dp)
-                    .height(8.dp)
-                    .background(TimelineNode, CircleShape),
+                    .size(tokens.sizes.statusDot)
+                    .background(tokens.colors.primaryBlue, CircleShape),
             )
             if (!isLast) {
-                Box(
+                Spacer(
                     modifier = Modifier
-                        .width(74.dp)
+                        .width(88.dp)
                         .height(2.dp)
-                        .background(TimelineLine),
+                        .background(tokens.colors.dividerColor),
                 )
             }
         }
         Text(
             text = stop.station.localName,
-            color = Color.White,
-            style = MaterialTheme.typography.bodyMedium,
+            color = tokens.colors.textPrimary,
+            style = tokens.typography.captionStrong,
             fontWeight = FontWeight.SemiBold,
         )
         Text(
             text = stop.displayTime(),
-            color = TimelineSecondaryText,
-            style = MaterialTheme.typography.bodySmall,
+            color = tokens.colors.textSecondary,
+            style = tokens.typography.caption,
         )
     }
 }
 
 private fun TimelineStop.displayTime(): String =
-    departureTime?.let(ThsrFormatters::time)
-        ?: arrivalTime?.let(ThsrFormatters::time)
+    departureTime?.let(ThsrFormatters::displayTimetableTime)
+        ?: arrivalTime?.let(ThsrFormatters::displayTimetableTime)
         ?: "--:--"
