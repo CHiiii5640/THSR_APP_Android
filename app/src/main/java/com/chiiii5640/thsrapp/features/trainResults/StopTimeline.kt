@@ -35,25 +35,25 @@ private val TimelineSecondaryText = Color(0xFF8E8E93)
 fun StopTimeline(stops: List<TimelineStop>) {
     Surface(
         color = TimelineBackground,
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(12.dp),
         tonalElevation = 0.dp,
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Text(
                 text = "左右滑動查看完整停靠站",
                 color = TimelineSecondaryText,
                 style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(horizontal = 12.dp),
+                modifier = Modifier.padding(horizontal = 10.dp),
             )
             Row(
                 modifier = Modifier
                     .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 12.dp),
+                    .padding(horizontal = 10.dp),
                 horizontalArrangement = Arrangement.spacedBy(0.dp),
                 verticalAlignment = Alignment.Top,
             ) {
@@ -74,21 +74,21 @@ private fun StopNode(
     isLast: Boolean,
 ) {
     Column(
-        modifier = Modifier.width(92.dp),
+        modifier = Modifier.width(82.dp),
         horizontalAlignment = Alignment.Start,
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier
-                    .width(10.dp)
-                    .height(10.dp)
+                    .width(8.dp)
+                    .height(8.dp)
                     .background(TimelineNode, CircleShape),
             )
             if (!isLast) {
                 Box(
                     modifier = Modifier
-                        .width(82.dp)
+                        .width(74.dp)
                         .height(2.dp)
                         .background(TimelineLine),
                 )
@@ -97,7 +97,7 @@ private fun StopNode(
         Text(
             text = stop.station.localName,
             color = Color.White,
-            style = MaterialTheme.typography.titleSmall,
+            style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.SemiBold,
         )
         Text(

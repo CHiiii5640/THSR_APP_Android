@@ -68,55 +68,55 @@ fun TrainOptionCard(
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = CardBackground,
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(18.dp),
         tonalElevation = 0.dp,
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.Top,
             ) {
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
                         text = option.trainNo.padStart(4, '0'),
                         color = Color.White,
-                        style = MaterialTheme.typography.displaySmall,
+                        style = MaterialTheme.typography.headlineLarge,
                         fontWeight = FontWeight.Bold,
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text = ThsrFormatters.time(option.departureTime),
                             color = Color.White,
-                            style = MaterialTheme.typography.headlineMedium,
+                            style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.SemiBold,
                         )
                         Text(
                             text = "  →  ",
                             color = MutedText,
-                            style = MaterialTheme.typography.headlineMedium,
+                            style = MaterialTheme.typography.headlineSmall,
                         )
                         Text(
                             text = ThsrFormatters.time(option.arrivalTime),
                             color = Color.White,
-                            style = MaterialTheme.typography.headlineMedium,
+                            style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.SemiBold,
                         )
                     }
                     Text(
                         text = "${option.origin.localName}  →  ${option.destination.localName}",
                         color = MutedText,
-                        style = MaterialTheme.typography.titleMedium,
+                        style = MaterialTheme.typography.bodyLarge,
                     )
                 }
                 BookingStatusBadge(option.bookingStatus)
             }
 
             FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 MetaChip(
                     label = option.seatStatus.label(),
@@ -164,19 +164,20 @@ fun TrainOptionCard(
                 Text(
                     text = "停靠 ${option.stops.size} 站",
                     color = Color.White,
-                    style = MaterialTheme.typography.titleSmall,
+                    style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.weight(1f),
                 )
                 Text(
                     text = if (expanded) "收起" else "查看",
                     color = AccentBlue,
-                    style = MaterialTheme.typography.titleSmall,
+                    style = MaterialTheme.typography.bodyLarge,
                 )
                 Spacer(Modifier.width(6.dp))
                 Icon(
                     imageVector = if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
                     contentDescription = if (expanded) "收起停靠站" else "展開停靠站",
                     tint = AccentBlue,
+                    modifier = Modifier.size(18.dp),
                 )
             }
 
@@ -206,14 +207,14 @@ fun TrainOptionCard(
 private fun BookingStatusBadge(status: BookingStatus) {
     Surface(
         color = Color.Transparent,
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(16.dp),
         border = androidx.compose.foundation.BorderStroke(1.dp, status.color()),
     ) {
         Text(
             text = status.label(),
             color = status.color(),
-            style = MaterialTheme.typography.titleSmall,
-            modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp),
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
         )
     }
 }
@@ -228,25 +229,25 @@ private fun MetaChip(
     Surface(
         modifier = if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier,
         color = Color(0xFF242426),
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(12.dp),
         border = androidx.compose.foundation.BorderStroke(1.dp, OutlineGray),
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+            modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(5.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             if (icon != null) {
                 icon()
             } else {
                 Surface(color = color, shape = CircleShape) {
-                    Spacer(Modifier.size(8.dp))
+                    Spacer(Modifier.size(7.dp))
                 }
             }
             Text(
                 text = label,
                 color = color,
-                style = MaterialTheme.typography.bodyLarge,
+                style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Medium,
             )
         }
