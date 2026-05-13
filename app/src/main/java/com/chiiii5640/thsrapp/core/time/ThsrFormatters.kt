@@ -15,10 +15,10 @@ object ThsrFormatters {
     fun date(value: LocalDate): String = value.format(apiDate)
     fun time(value: LocalTime): String = value.format(apiTime)
     fun displayDate(value: LocalDate): String =
-        value.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.LONG).localizedBy(locale()))
+        value.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.LONG).withLocale(locale()))
 
     fun pickerTime(value: LocalTime): String =
-        value.format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).localizedBy(locale()))
+        value.format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(locale()))
 
     fun displayTimetableTime(value: LocalTime): String = value.format(displayTime24Hour)
 }
