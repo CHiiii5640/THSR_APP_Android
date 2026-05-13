@@ -24,7 +24,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
-import androidx.compose.material.icons.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.ErrorOutline
@@ -77,11 +76,11 @@ fun TrainOptionCard(
         modifier = Modifier.fillMaxWidth(),
         color = tokens.colors.cardColor,
         shape = RoundedCornerShape(tokens.radii.cornerRadiusLarge),
-        tonalElevation = tokens.spacing.spacing4,
+        tonalElevation = 0.dp,
     ) {
         Column(
-            modifier = Modifier.padding(tokens.spacing.spacing20),
-            verticalArrangement = Arrangement.spacedBy(tokens.spacing.spacing16),
+            modifier = Modifier.padding(tokens.spacing.spacing16),
+            verticalArrangement = Arrangement.spacedBy(tokens.spacing.spacing12),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -89,7 +88,7 @@ fun TrainOptionCard(
             ) {
                 Column(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(tokens.spacing.spacing12),
+                    verticalArrangement = Arrangement.spacedBy(tokens.spacing.spacing8),
                 ) {
                     Text(
                         text = option.trainNo.padStart(4, '0'),
@@ -109,7 +108,7 @@ fun TrainOptionCard(
                             imageVector = Icons.AutoMirrored.Outlined.ArrowForward,
                             contentDescription = null,
                             tint = tokens.colors.textTertiary,
-                            modifier = Modifier.size(tokens.spacing.spacing20),
+                            modifier = Modifier.size(tokens.spacing.spacing16),
                         )
                         Text(
                             text = ThsrFormatters.displayTimetableTime(option.arrivalTime),
@@ -251,7 +250,7 @@ private fun BookingStatusBadge(status: BookingStatus) {
         Row(
             modifier = Modifier.padding(
                 horizontal = tokens.spacing.spacing12,
-                vertical = tokens.spacing.spacing8,
+                vertical = tokens.spacing.spacing4,
             ),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(tokens.spacing.spacing8),
@@ -311,7 +310,7 @@ private fun DiscountBadge(
         Row(
             modifier = Modifier.padding(
                 horizontal = tokens.spacing.spacing12,
-                vertical = tokens.spacing.spacing8,
+                vertical = tokens.spacing.spacing4,
             ),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(tokens.spacing.spacing8),

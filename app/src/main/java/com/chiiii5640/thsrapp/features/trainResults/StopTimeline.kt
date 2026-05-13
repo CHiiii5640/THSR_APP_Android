@@ -37,19 +37,19 @@ fun StopTimeline(stops: List<TimelineStop>) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = tokens.spacing.spacing12),
-            verticalArrangement = Arrangement.spacedBy(tokens.spacing.spacing8),
+                .padding(vertical = tokens.spacing.spacing8),
+            verticalArrangement = Arrangement.spacedBy(tokens.spacing.spacing4),
         ) {
             Text(
                 text = "左右滑動查看完整停靠站",
                 color = tokens.colors.textSecondary,
                 style = tokens.typography.caption,
-                modifier = Modifier.padding(horizontal = tokens.spacing.spacing16),
+                modifier = Modifier.padding(horizontal = tokens.spacing.spacing12),
             )
             Row(
                 modifier = Modifier
                     .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = tokens.spacing.spacing16),
+                    .padding(horizontal = tokens.spacing.spacing12),
                 verticalAlignment = Alignment.Top,
             ) {
                 stops.forEachIndexed { index, stop ->
@@ -70,9 +70,9 @@ private fun StopNode(
 ) {
     val tokens = ThsrDesignTokens
     Column(
-        modifier = Modifier.width(96.dp),
+        modifier = Modifier.width(84.dp),
         horizontalAlignment = Alignment.Start,
-        verticalArrangement = Arrangement.spacedBy(tokens.spacing.spacing8),
+        verticalArrangement = Arrangement.spacedBy(tokens.spacing.spacing4),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
@@ -83,7 +83,7 @@ private fun StopNode(
             if (!isLast) {
                 Spacer(
                     modifier = Modifier
-                        .width(88.dp)
+                        .width(76.dp)
                         .height(2.dp)
                         .background(tokens.colors.dividerColor),
                 )

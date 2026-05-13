@@ -156,12 +156,12 @@ fun SearchDashboardScreen(viewModel: SearchDashboardViewModel) {
                 .fillMaxHeight()
                 .padding(padding)
                 .background(tokens.colors.backgroundColor),
-            verticalArrangement = Arrangement.spacedBy(tokens.spacing.spacing16),
+            verticalArrangement = Arrangement.spacedBy(tokens.spacing.spacing12),
             contentPadding = PaddingValues(
                 start = tokens.spacing.spacing16,
-                top = tokens.spacing.spacing8,
+                top = tokens.spacing.spacing4,
                 end = tokens.spacing.spacing16,
-                bottom = tokens.spacing.spacing24,
+                bottom = tokens.spacing.spacing20,
             ),
         ) {
             if (state.showingScheduledNotifications) {
@@ -225,7 +225,7 @@ private fun ScheduledNotificationsSection(
     Surface(
         color = tokens.colors.surfaceColor,
         shape = RoundedCornerShape(tokens.radii.cornerRadiusLarge),
-        tonalElevation = tokens.spacing.spacing4,
+        tonalElevation = 0.dp,
     ) {
         Column(Modifier.padding(vertical = tokens.spacing.spacing8)) {
             ScheduledNotificationsScreen(
@@ -254,7 +254,7 @@ private fun QueryFormSection(
     Surface(
         color = tokens.colors.surfaceColor,
         shape = RoundedCornerShape(tokens.radii.cornerRadiusLarge),
-        tonalElevation = tokens.spacing.spacing4,
+        tonalElevation = 0.dp,
     ) {
         Column {
             QueryValueRow(
@@ -299,7 +299,7 @@ private fun QueryFormSection(
                     .fillMaxWidth()
                     .padding(
                         horizontal = tokens.spacing.spacing16,
-                        vertical = tokens.spacing.spacing12,
+                        vertical = tokens.spacing.spacing8,
                     ),
             ) {
                 Button(
@@ -399,7 +399,7 @@ private fun QueryActionRow(
             )
             .padding(horizontal = tokens.spacing.spacing20),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(tokens.spacing.spacing12),
+        horizontalArrangement = Arrangement.spacedBy(tokens.spacing.spacing8),
     ) {
         Icon(
             imageVector = Icons.Outlined.SwapVert,
@@ -574,7 +574,7 @@ private fun DataSourceSection(result: SearchResult) {
         Surface(
             color = tokens.colors.surfaceColor,
             shape = RoundedCornerShape(tokens.radii.cornerRadiusLarge),
-            tonalElevation = tokens.spacing.spacing4,
+            tonalElevation = 0.dp,
         ) {
             Column {
                 rows.forEachIndexed { index, row ->
@@ -646,7 +646,7 @@ private fun ResultFilterBar(
     val tokens = ThsrDesignTokens
     LazyRow(
         contentPadding = PaddingValues(horizontal = tokens.spacing.spacing4),
-        horizontalArrangement = Arrangement.spacedBy(tokens.spacing.spacing12),
+        horizontalArrangement = Arrangement.spacedBy(tokens.spacing.spacing8),
     ) {
         items(ResultFilter.entries, key = { it.name }) { filter ->
             FilterPill(
@@ -681,8 +681,8 @@ private fun FilterPill(
     ) {
         Box(
             modifier = Modifier.padding(
-                horizontal = tokens.spacing.spacing20,
-                vertical = tokens.spacing.spacing12,
+                horizontal = tokens.spacing.spacing16,
+                vertical = tokens.spacing.spacing8,
             ),
             contentAlignment = Alignment.Center,
         ) {
@@ -701,10 +701,10 @@ private fun LoadingSection() {
     Surface(
         color = tokens.colors.surfaceColor,
         shape = RoundedCornerShape(tokens.radii.cornerRadiusLarge),
-        tonalElevation = tokens.spacing.spacing4,
+        tonalElevation = 0.dp,
     ) {
         Column(
-            modifier = Modifier.padding(tokens.spacing.spacing20),
+            modifier = Modifier.padding(tokens.spacing.spacing16),
             verticalArrangement = Arrangement.spacedBy(tokens.spacing.spacing12),
         ) {
             Text(
@@ -727,13 +727,13 @@ private fun ErrorSection(message: String) {
     Surface(
         color = tokens.colors.surfaceColor,
         shape = RoundedCornerShape(tokens.radii.cornerRadiusLarge),
-        tonalElevation = tokens.spacing.spacing4,
+        tonalElevation = 0.dp,
     ) {
         Text(
             text = message,
             color = tokens.colors.warningOrange,
             style = tokens.typography.body,
-            modifier = Modifier.padding(tokens.spacing.spacing20),
+            modifier = Modifier.padding(tokens.spacing.spacing16),
         )
     }
 }
@@ -744,13 +744,13 @@ private fun EmptyHint(message: String) {
     Surface(
         color = tokens.colors.surfaceColor,
         shape = RoundedCornerShape(tokens.radii.cornerRadiusLarge),
-        tonalElevation = tokens.spacing.spacing4,
+        tonalElevation = 0.dp,
     ) {
         Text(
             text = message,
             color = tokens.colors.textSecondary,
             style = tokens.typography.body,
-            modifier = Modifier.padding(tokens.spacing.spacing20),
+            modifier = Modifier.padding(tokens.spacing.spacing16),
         )
     }
 }
