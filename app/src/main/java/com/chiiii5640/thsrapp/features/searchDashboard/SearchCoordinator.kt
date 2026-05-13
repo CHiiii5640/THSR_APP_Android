@@ -1,5 +1,6 @@
 package com.chiiii5640.thsrapp.features.searchDashboard
 
+import com.chiiii5640.thsrapp.core.logging.ThsrLog
 import com.chiiii5640.thsrapp.core.model.TripQuery
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -17,17 +18,28 @@ class SearchCoordinator(
     fun search(query: TripQuery) {
         pendingJob?.cancel()
         pendingJob = scope.launch {
+            ThsrLog.i(
+                "coordinator received query ${query.origin.localName}-${query.destination.localName} ${query.travelDate} ${query.departureAfter} forceRefresh=${query.forceRefresh}",
+            )
             if (!query.forceRefresh) {
                 delay(350)
-                if (query == lastCompletedRequest) return@launch
+                if (query == lastCompletedRequest) {
+                    ThsrLog.i("coordinator skipped duplicate query")
+                    return@launch
+                }
             }
             onState(SearchLoadState.Loading)
+            ThsrLog.i("coordinator loading query")
             runCatching { service.search(query) }
                 .onSuccess {
                     lastCompletedRequest = query.copy(forceRefresh = false)
+                    ThsrLog.i("coordinator loaded ${it.options.size} options")
                     onState(SearchLoadState.Loaded(it))
                 }
-                .onFailure { onState(SearchLoadState.Failed(it.message ?: "查詢失敗")) }
+                .onFailure {
+                    ThsrLog.e("coordinator failed query", it)
+                    onState(SearchLoadState.Failed(it.message ?: "查詢失敗"))
+                }
         }
     }
 }

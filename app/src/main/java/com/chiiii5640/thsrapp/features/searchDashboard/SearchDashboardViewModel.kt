@@ -2,6 +2,7 @@ package com.chiiii5640.thsrapp.features.searchDashboard
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.chiiii5640.thsrapp.core.logging.ThsrLog
 import com.chiiii5640.thsrapp.core.model.Station
 import com.chiiii5640.thsrapp.core.model.TrainOption
 import com.chiiii5640.thsrapp.core.model.TripQuery
@@ -98,6 +99,9 @@ class SearchDashboardViewModel(
             travelDate = state.travelDate,
             departureAfter = state.departureAfter,
             forceRefresh = forceRefresh,
+        )
+        ThsrLog.i(
+            "submit query ${query.origin.localName}-${query.destination.localName} ${query.travelDate} ${query.departureAfter} forceRefresh=${query.forceRefresh}",
         )
         coordinator.search(query)
     }
