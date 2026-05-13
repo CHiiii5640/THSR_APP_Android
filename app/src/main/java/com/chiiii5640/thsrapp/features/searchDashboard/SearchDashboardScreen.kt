@@ -22,12 +22,9 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
-import androidx.compose.material.icons.outlined.Language
-import androidx.compose.material.icons.outlined.LocalOffer
 import androidx.compose.material.icons.outlined.NotificationsNone
-import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.SwapVert
 import androidx.compose.material3.AlertDialog
@@ -141,7 +138,14 @@ fun SearchDashboardScreen(viewModel: SearchDashboardViewModel) {
                     IconButton(onClick = viewModel::forceRefresh) {
                         Icon(
                             imageVector = Icons.Outlined.Search,
-                            contentDescription = "重新查詢",
+                            contentDescription = "查詢",
+                            tint = tokens.colors.primaryBlue,
+                        )
+                    }
+                    IconButton(onClick = viewModel::forceRefresh) {
+                        Icon(
+                            imageVector = Icons.Outlined.Refresh,
+                            contentDescription = "強制更新",
                             tint = tokens.colors.primaryBlue,
                         )
                     }
@@ -359,11 +363,16 @@ private fun QueryValueRow(
         modifier = Modifier
             .fillMaxWidth()
             .height(tokens.sizes.formRowHeight)
-            .clickable(
-                enabled = onClick != null,
-                interactionSource = interactionSource,
-                indication = null,
-                onClick = { onClick?.invoke() },
+            .then(
+                if (onClick != null) {
+                    Modifier.clickable(
+                        interactionSource = interactionSource,
+                        indication = null,
+                        onClick = onClick,
+                    )
+                } else {
+                    Modifier
+                },
             )
             .padding(horizontal = tokens.spacing.spacing20),
         verticalAlignment = Alignment.CenterVertically,
@@ -464,11 +473,16 @@ private fun FormValue(
     Row(
         modifier = Modifier
             .clip(RoundedCornerShape(tokens.radii.cornerRadiusSmall))
-            .clickable(
-                enabled = onClick != null,
-                interactionSource = interactionSource,
-                indication = null,
-                onClick = { onClick?.invoke() },
+            .then(
+                if (onClick != null) {
+                    Modifier.clickable(
+                        interactionSource = interactionSource,
+                        indication = null,
+                        onClick = onClick,
+                    )
+                } else {
+                    Modifier
+                },
             )
             .padding(
                 horizontal = tokens.spacing.spacing8,
@@ -537,7 +551,7 @@ private fun DepartureTimePickerDialog(
     val timePickerState = rememberTimePickerState(
         initialHour = selectedTime.hour,
         initialMinute = selectedTime.minute,
-        is24Hour = false,
+        is24Hour = true,
     )
 
     AlertDialog(
@@ -589,7 +603,7 @@ private fun DataSourceSection(result: SearchResult) {
             }
         }
         Text(
-            text = "班次會優先使用 TDX 時刻表與座位資料；若官方來源缺資料，才會退回快取或 fallback。",
+            text = "本次結果會優先使用 TDX，若官方來源缺資料才會退回快取或 fallback。",
             color = tokens.colors.textSecondary,
             style = tokens.typography.body,
             modifier = Modifier.padding(horizontal = tokens.spacing.spacing4),
@@ -607,29 +621,20 @@ private fun DataSourceRow(row: DashboardSourceRow) {
             .padding(horizontal = tokens.spacing.spacing20),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(
-            imageVector = row.icon,
-            contentDescription = null,
-            tint = row.tint,
-            modifier = Modifier.size(tokens.spacing.spacing24),
+        Box(
+            modifier = Modifier
+                .size(tokens.sizes.statusDot)
+                .background(row.tint, CircleShape),
         )
         Spacer(Modifier.width(tokens.spacing.spacing12))
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(tokens.spacing.spacing4)) {
-            Text(
-                text = row.title,
-                color = if (row.kind == SourceRowKind.Discount) tokens.colors.primaryBlue else tokens.colors.textPrimary,
-                style = tokens.typography.bodyStrong,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                text = row.subtitle,
-                color = tokens.colors.textSecondary,
-                style = tokens.typography.caption,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
+        Text(
+            text = row.title,
+            color = tokens.colors.textPrimary,
+            style = tokens.typography.bodyStrong,
+            modifier = Modifier.weight(1f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
         Text(
             text = row.stateLabel,
             color = tokens.colors.textTertiary,
@@ -758,14 +763,11 @@ private fun EmptyHint(message: String) {
 private data class DashboardSourceRow(
     val kind: SourceRowKind,
     val title: String,
-    val subtitle: String,
     val stateLabel: String,
-    val icon: androidx.compose.ui.graphics.vector.ImageVector,
     val tint: Color,
 )
 
 private fun SearchResult.sourceStatusRows(): List<DashboardSourceRow> {
-    val tokens = ThsrDesignTokens
     val timetableStatus = sourceStatuses.getOrNull(0) ?: SourceStatus("timetable unavailable", SourceState.Unavailable)
     val seatStatus = sourceStatuses.getOrNull(1) ?: SourceStatus("seat unavailable", SourceState.Unavailable)
     val discountStatus = sourceStatuses.getOrNull(2) ?: SourceStatus("discount unavailable", SourceState.Unavailable)
@@ -773,35 +775,21 @@ private fun SearchResult.sourceStatusRows(): List<DashboardSourceRow> {
     return listOf(
         DashboardSourceRow(
             kind = SourceRowKind.Timetable,
-            title = "時刻表",
-            subtitle = timetableStatus.localizedSubtitle(),
+            title = timetableStatus.iosTitle(),
             stateLabel = timetableStatus.stateLabel(),
-            icon = if (timetableStatus.state == SourceState.Unavailable) Icons.Outlined.Schedule else Icons.Outlined.CheckCircle,
             tint = timetableStatus.tint(),
         ),
         DashboardSourceRow(
             kind = SourceRowKind.SeatAvailability,
-            title = "座位狀態",
-            subtitle = seatStatus.localizedSubtitle(),
+            title = seatStatus.iosTitle(),
             stateLabel = seatStatus.stateLabel(),
-            icon = if (seatStatus.state == SourceState.Unavailable) Icons.Outlined.Schedule else Icons.Outlined.CheckCircle,
             tint = seatStatus.tint(),
         ),
         DashboardSourceRow(
             kind = SourceRowKind.Discount,
-            title = "優惠",
-            subtitle = discountStatus.localizedSubtitle(),
+            title = discountStatus.iosTitle(),
             stateLabel = discountStatus.stateLabel(),
-            icon = Icons.Outlined.LocalOffer,
-            tint = tokens.colors.primaryBlue,
-        ),
-        DashboardSourceRow(
-            kind = SourceRowKind.Attribution,
-            title = "資料來源",
-            subtitle = timetableStatus.localizedSourceAttribution(),
-            stateLabel = timetableStatus.stateLabel(),
-            icon = Icons.Outlined.Language,
-            tint = tokens.colors.primaryBlue,
+            tint = discountStatus.tint(),
         ),
     )
 }
@@ -813,25 +801,18 @@ private fun SourceStatus.stateLabel(): String = when (state) {
     SourceState.Unavailable -> "不可用"
 }
 
-private fun SourceStatus.localizedSubtitle(): String = when {
-    label.contains("DailyTimetable", ignoreCase = true) -> "TDX 高鐵每日時刻表已取得"
-    label.contains("GeneralTimetable", ignoreCase = true) && state == SourceState.Fallback -> "使用 GeneralTimetable fallback"
-    label.contains("persisted", ignoreCase = true) -> "使用本機保存的 GeneralTimetable"
-    label.contains("seat availability live", ignoreCase = true) -> "TDX 座位狀態已取得"
-    label.contains("seat availability cache", ignoreCase = true) -> "座位狀態使用快取"
-    label.contains("seat APIs skipped", ignoreCase = true) -> "fallback timetable 不查座位 API"
-    label.contains("cooldown", ignoreCase = true) -> "座位 API 正在冷卻中"
-    label.contains("discount feed", ignoreCase = true) -> "優惠快取已取得"
-    label.contains("timetable fallback", ignoreCase = true) -> "優惠 feed fallback timetable"
-    label.contains("unavailable", ignoreCase = true) -> "目前無法取得資料"
-    else -> label
-}
-
-private fun SourceStatus.localizedSourceAttribution(): String = when {
-    label.contains("DailyTimetable", ignoreCase = true) -> "TDX 高鐵每日時刻表"
-    label.contains("GeneralTimetable", ignoreCase = true) -> "TDX GeneralTimetable"
-    label.contains("persisted", ignoreCase = true) -> "本機保存的 GeneralTimetable"
+private fun SourceStatus.iosTitle(): String = when {
+    label.contains("DailyTimetable", ignoreCase = true) && state == SourceState.Live -> "TDX DailyTimetable live"
+    label.contains("DailyTimetable", ignoreCase = true) && state == SourceState.Cache -> "TDX 高鐵每日時刻表（快取）"
+    label.contains("GeneralTimetable", ignoreCase = true) -> "TDX GeneralTimetable fallback"
+    label.contains("persisted", ignoreCase = true) -> "本機保存 GeneralTimetable"
+    label.contains("seat availability live", ignoreCase = true) -> "TDX seat availability live"
+    label.contains("seat availability cache", ignoreCase = true) -> "TDX seat availability（快取）"
+    label.contains("seat APIs skipped", ignoreCase = true) -> "座位 API 已略過"
+    label.contains("cooldown", ignoreCase = true) -> "座位 API 冷卻中"
     label.contains("discount feed", ignoreCase = true) -> "GitHub Pages discount feed"
+    label.contains("timetable fallback", ignoreCase = true) -> "Discount feed fallback timetable"
+    label.contains("unavailable", ignoreCase = true) -> "不可用"
     else -> label
 }
 

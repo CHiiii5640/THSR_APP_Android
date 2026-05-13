@@ -82,6 +82,7 @@ fun TrainOptionCard(
             modifier = Modifier.padding(tokens.spacing.spacing16),
             verticalArrangement = Arrangement.spacedBy(tokens.spacing.spacing12),
         ) {
+            // Header: train number + booking status badge
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.Top,
@@ -125,28 +126,30 @@ fun TrainOptionCard(
                 BookingStatusBadge(option.bookingStatus)
             }
 
-            SeatStatusLine(option)
-
-            if (option.discounts.isNotEmpty()) {
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(tokens.spacing.spacing8),
-                    verticalArrangement = Arrangement.spacedBy(tokens.spacing.spacing8),
-                ) {
-                    option.discounts.forEach { discount ->
-                        DiscountBadge(
-                            label = discount.label,
-                            color = when (discount.type) {
-                                DiscountType.EarlyBird,
-                                DiscountType.CollegeStudent -> tokens.colors.warningOrange
-                                DiscountType.Other -> tokens.colors.textPrimary
-                            },
-                        )
-                    }
+            // iOS-style inline pill badges: seat status + discounts
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(tokens.spacing.spacing8),
+                verticalArrangement = Arrangement.spacedBy(tokens.spacing.spacing8),
+            ) {
+                SeatStatusPill(option.seatStatus)
+                option.discounts.forEach { discount ->
+                    DiscountBadge(
+                        label = discount.label,
+                        color = when (discount.type) {
+                            DiscountType.EarlyBird,
+                            DiscountType.CollegeStudent -> tokens.colors.warningOrange
+                            DiscountType.Other -> tokens.colors.textPrimary
+                        },
+                    )
                 }
             }
 
+            // Duration pill
+            DurationPill(option.durationLabel())
+
             HorizontalDivider(color = tokens.colors.dividerColor)
 
+            // Source + booking link
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -161,6 +164,7 @@ fun TrainOptionCard(
                 )
             }
 
+            // Stops + expand
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -171,12 +175,6 @@ fun TrainOptionCard(
                     style = tokens.typography.bodyStrong,
                     modifier = Modifier.weight(1f),
                 )
-                Text(
-                    text = option.durationLabel(),
-                    color = tokens.colors.textTertiary,
-                    style = tokens.typography.captionStrong,
-                )
-                Spacer(Modifier.width(tokens.spacing.spacing12))
                 FooterAction(
                     label = if (expanded) "收起" else "查看",
                     onClick = { expanded = !expanded },
@@ -271,29 +269,65 @@ private fun BookingStatusBadge(status: BookingStatus) {
 }
 
 @Composable
-private fun SeatStatusLine(option: TrainOption) {
+private fun SeatStatusPill(status: SeatStatus) {
     val tokens = ThsrDesignTokens
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(tokens.spacing.spacing12),
+    val color = status.color()
+    Surface(
+        color = tokens.colors.elevatedSurfaceColor,
+        shape = RoundedCornerShape(tokens.radii.chipRadius),
+        border = androidx.compose.foundation.BorderStroke(1.dp, tokens.colors.outlineColor),
     ) {
-        SeatStatusDot(option.seatStatus.color())
-        Text(
-            text = option.seatStatus.detailLabel(),
-            color = option.seatStatus.color(),
-            style = tokens.typography.bodyStrong,
-        )
+        Row(
+            modifier = Modifier.padding(
+                horizontal = tokens.spacing.spacing12,
+                vertical = tokens.spacing.spacing4,
+            ),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(tokens.spacing.spacing8),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(tokens.sizes.statusDot)
+                    .background(color = color, shape = CircleShape),
+            )
+            Text(
+                text = status.pillLabel(),
+                color = color,
+                style = tokens.typography.pill,
+            )
+        }
     }
 }
 
 @Composable
-private fun SeatStatusDot(color: Color) {
-    Box(
-        modifier = Modifier
-            .size(ThsrDesignTokens.sizes.statusDot)
-            .background(color = color, shape = CircleShape),
-    )
+private fun DurationPill(label: String) {
+    val tokens = ThsrDesignTokens
+    Surface(
+        color = tokens.colors.elevatedSurfaceColor,
+        shape = RoundedCornerShape(tokens.radii.chipRadius),
+        border = androidx.compose.foundation.BorderStroke(1.dp, tokens.colors.outlineColor),
+    ) {
+        Row(
+            modifier = Modifier.padding(
+                horizontal = tokens.spacing.spacing12,
+                vertical = tokens.spacing.spacing4,
+            ),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(tokens.spacing.spacing8),
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Schedule,
+                contentDescription = null,
+                tint = tokens.colors.textTertiary,
+                modifier = Modifier.size(tokens.spacing.spacing16),
+            )
+            Text(
+                text = label,
+                color = tokens.colors.textTertiary,
+                style = tokens.typography.pill,
+            )
+        }
+    }
 }
 
 @Composable
@@ -403,11 +437,11 @@ private fun SeatStatus.color(): Color = when (this) {
     SeatStatus.SoldOut -> ThsrDesignTokens.colors.dangerRed
 }
 
-private fun SeatStatus.detailLabel(): String = when (this) {
-    SeatStatus.Unknown -> "標準 未列入看板"
-    SeatStatus.Available -> "標準 座位有餘"
-    SeatStatus.Limited -> "標準 座位有限"
-    SeatStatus.SoldOut -> "標準 TDX 顯示無座"
+private fun SeatStatus.pillLabel(): String = when (this) {
+    SeatStatus.Unknown -> "未列入看板"
+    SeatStatus.Available -> "座位有餘"
+    SeatStatus.Limited -> "座位有限"
+    SeatStatus.SoldOut -> "TDX 顯示無座"
 }
 
 private fun com.chiiii5640.thsrapp.core.model.SourceStatus.cardSourceLabel(): String = when (state) {
