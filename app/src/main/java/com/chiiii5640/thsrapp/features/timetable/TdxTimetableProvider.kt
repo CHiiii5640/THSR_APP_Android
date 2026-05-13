@@ -101,11 +101,15 @@ private fun TdxDailyTimetableItem.toTimetableTrain(query: TripQuery): TimetableT
     )
 
 private fun TdxGeneralTimetableRecord.toTimetableTrain(query: TripQuery): TimetableTrain? =
-    generalTimetable.stopTimes.toTimetableTrain(
-        trainNo = generalTimetable.generalTrainInfo.trainNo,
-        origin = query.origin,
-        destination = query.destination,
-    )
+    if (generalTimetable.serviceDay?.runsOn(query.travelDate.dayOfWeek) == false) {
+        null
+    } else {
+        generalTimetable.stopTimes.toTimetableTrain(
+            trainNo = generalTimetable.generalTrainInfo.trainNo,
+            origin = query.origin,
+            destination = query.destination,
+        )
+    }
 
 private fun List<TdxStopTime>.toTimetableTrain(
     trainNo: String,

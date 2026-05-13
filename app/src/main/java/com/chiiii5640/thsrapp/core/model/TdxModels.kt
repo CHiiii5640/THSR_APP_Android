@@ -2,6 +2,7 @@ package com.chiiii5640.thsrapp.core.model
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import java.time.DayOfWeek
 
 @Serializable
 data class TdxDailyTimetableItem(
@@ -19,7 +20,29 @@ data class TdxGeneralTimetableRecord(
 data class TdxGeneralTimetableItem(
     @SerialName("GeneralTrainInfo") val generalTrainInfo: TdxTrainInfo,
     @SerialName("StopTimes") val stopTimes: List<TdxStopTime>,
+    @SerialName("ServiceDay") val serviceDay: TdxServiceDay? = null,
 )
+
+@Serializable
+data class TdxServiceDay(
+    @SerialName("Monday") val monday: Int = 0,
+    @SerialName("Tuesday") val tuesday: Int = 0,
+    @SerialName("Wednesday") val wednesday: Int = 0,
+    @SerialName("Thursday") val thursday: Int = 0,
+    @SerialName("Friday") val friday: Int = 0,
+    @SerialName("Saturday") val saturday: Int = 0,
+    @SerialName("Sunday") val sunday: Int = 0,
+) {
+    fun runsOn(dayOfWeek: DayOfWeek): Boolean = when (dayOfWeek) {
+        DayOfWeek.MONDAY -> monday == 1
+        DayOfWeek.TUESDAY -> tuesday == 1
+        DayOfWeek.WEDNESDAY -> wednesday == 1
+        DayOfWeek.THURSDAY -> thursday == 1
+        DayOfWeek.FRIDAY -> friday == 1
+        DayOfWeek.SATURDAY -> saturday == 1
+        DayOfWeek.SUNDAY -> sunday == 1
+    }
+}
 
 @Serializable
 data class TdxTrainInfo(
