@@ -35,25 +35,25 @@ private val TimelineSecondaryText = Color(0xFF8E8E93)
 fun StopTimeline(stops: List<TimelineStop>) {
     Surface(
         color = TimelineBackground,
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(14.dp),
         tonalElevation = 0.dp,
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(
                 text = "左右滑動查看完整停靠站",
                 color = TimelineSecondaryText,
                 style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(horizontal = 14.dp),
+                modifier = Modifier.padding(horizontal = 12.dp),
             )
             Row(
                 modifier = Modifier
                     .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 14.dp),
+                    .padding(horizontal = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(0.dp),
                 verticalAlignment = Alignment.Top,
             ) {
@@ -74,21 +74,21 @@ private fun StopNode(
     isLast: Boolean,
 ) {
     Column(
-        modifier = Modifier.width(112.dp),
+        modifier = Modifier.width(92.dp),
         horizontalAlignment = Alignment.Start,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier
-                    .width(12.dp)
-                    .height(12.dp)
+                    .width(10.dp)
+                    .height(10.dp)
                     .background(TimelineNode, CircleShape),
             )
             if (!isLast) {
                 Box(
                     modifier = Modifier
-                        .width(100.dp)
+                        .width(82.dp)
                         .height(2.dp)
                         .background(TimelineLine),
                 )
@@ -97,13 +97,13 @@ private fun StopNode(
         Text(
             text = stop.station.localName,
             color = Color.White,
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.SemiBold,
         )
         Text(
             text = stop.displayTime(),
             color = TimelineSecondaryText,
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.bodySmall,
         )
     }
 }

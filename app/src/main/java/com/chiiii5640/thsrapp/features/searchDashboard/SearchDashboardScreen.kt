@@ -62,6 +62,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.chiiii5640.thsrapp.core.model.SourceState
 import com.chiiii5640.thsrapp.core.model.SourceStatus
@@ -102,6 +103,9 @@ fun SearchDashboardScreen(viewModel: SearchDashboardViewModel) {
                     Text(
                         text = if (state.showingScheduledNotifications) "通知列表" else "高鐵開票看板",
                         fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.headlineSmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 },
                 navigationIcon = {
@@ -132,8 +136,8 @@ fun SearchDashboardScreen(viewModel: SearchDashboardViewModel) {
             modifier = Modifier
                 .padding(padding)
                 .background(PageBackground),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(start = 16.dp, top = 4.dp, end = 16.dp, bottom = 20.dp),
         ) {
             if (state.showingScheduledNotifications) {
                 item {
@@ -196,7 +200,7 @@ private fun ScheduledNotificationsSection(
 ) {
     Surface(
         color = PanelBackground,
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(20.dp),
         tonalElevation = 0.dp,
     ) {
         Column(Modifier.padding(vertical = 8.dp)) {
@@ -224,7 +228,7 @@ private fun QueryFormSection(
 
     Surface(
         color = PanelBackground,
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(20.dp),
         tonalElevation = 0.dp,
     ) {
         Column {
@@ -324,14 +328,14 @@ private fun QueryFieldRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text(
             text = label,
             color = Color.White,
-            style = MaterialTheme.typography.titleLarge,
+            style = MaterialTheme.typography.headlineSmall,
             modifier = Modifier.weight(1f),
         )
         Box(modifier = Modifier.weight(1.3f), contentAlignment = Alignment.CenterEnd) {
@@ -350,7 +354,7 @@ private fun QueryActionRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -358,7 +362,7 @@ private fun QueryActionRow(
         Text(
             text = text,
             color = AccentColor,
-            style = MaterialTheme.typography.titleLarge,
+            style = MaterialTheme.typography.headlineSmall,
         )
     }
 }
@@ -395,8 +399,8 @@ private fun StationDropdown(
             ),
             modifier = Modifier
                 .menuAnchor()
-                .width(136.dp),
-            shape = RoundedCornerShape(14.dp),
+                .width(122.dp),
+            shape = RoundedCornerShape(12.dp),
             colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(
                 unfocusedContainerColor = Color(0xFF2C2C2E),
                 focusedContainerColor = Color(0xFF2C2C2E),
@@ -445,14 +449,14 @@ private fun PickerValue(
             .clip(RoundedCornerShape(14.dp))
             .background(Color(0xFF2C2C2E))
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 14.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(
             text = value,
             color = Color.White,
-            style = MaterialTheme.typography.titleLarge,
+            style = MaterialTheme.typography.titleMedium,
         )
         Icon(
             imageVector = Icons.Outlined.KeyboardArrowDown,
@@ -535,7 +539,7 @@ private fun DepartureTimePickerDialog(
 private fun DataSourceSection(result: SearchResult) {
     Surface(
         color = PanelBackground,
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(20.dp),
         tonalElevation = 0.dp,
     ) {
         Column(
@@ -606,7 +610,7 @@ private fun ResultFilterBar(selected: ResultFilter, onSelected: (ResultFilter) -
         modifier = Modifier
             .horizontalScroll(rememberScrollState())
             .padding(horizontal = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         ResultFilter.entries.forEach { filter ->
             FilterPill(
@@ -627,14 +631,14 @@ private fun FilterPill(
     Surface(
         modifier = Modifier.clickable(onClick = onClick),
         color = if (selected) AccentColor else Color(0xFF161618),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(20.dp),
         tonalElevation = 0.dp,
     ) {
         Text(
             text = label,
             color = Color.White,
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(horizontal = 22.dp, vertical = 14.dp),
+            style = MaterialTheme.typography.titleSmall,
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 11.dp),
         )
     }
 }
@@ -643,7 +647,7 @@ private fun FilterPill(
 private fun LoadingSection() {
     Surface(
         color = PanelBackground,
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(20.dp),
         tonalElevation = 0.dp,
     ) {
         Column(
@@ -664,7 +668,7 @@ private fun LoadingSection() {
 private fun ErrorSection(message: String) {
     Surface(
         color = PanelBackground,
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(20.dp),
         tonalElevation = 0.dp,
     ) {
         Text(
@@ -680,7 +684,7 @@ private fun ErrorSection(message: String) {
 private fun EmptyHint(message: String) {
     Card(
         colors = CardDefaults.cardColors(containerColor = PanelBackground),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(20.dp),
     ) {
         Text(
             text = message,

@@ -1,7 +1,10 @@
 package com.chiiii5640.thsrapp.features.trainResults
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Arrangement
@@ -63,59 +66,57 @@ fun TrainOptionCard(
     }
 
     Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .animateContentSize(),
+        modifier = Modifier.fillMaxWidth(),
         color = CardBackground,
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(20.dp),
         tonalElevation = 0.dp,
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 18.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.Top,
             ) {
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
                         text = option.trainNo.padStart(4, '0'),
                         color = Color.White,
-                        style = MaterialTheme.typography.headlineMedium,
+                        style = MaterialTheme.typography.displaySmall,
                         fontWeight = FontWeight.Bold,
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text = ThsrFormatters.time(option.departureTime),
                             color = Color.White,
-                            style = MaterialTheme.typography.headlineSmall,
+                            style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.SemiBold,
                         )
                         Text(
                             text = "  →  ",
                             color = MutedText,
-                            style = MaterialTheme.typography.headlineSmall,
+                            style = MaterialTheme.typography.headlineMedium,
                         )
                         Text(
                             text = ThsrFormatters.time(option.arrivalTime),
                             color = Color.White,
-                            style = MaterialTheme.typography.headlineSmall,
+                            style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.SemiBold,
                         )
                     }
                     Text(
                         text = "${option.origin.localName}  →  ${option.destination.localName}",
                         color = MutedText,
-                        style = MaterialTheme.typography.bodyLarge,
+                        style = MaterialTheme.typography.titleMedium,
                     )
                 }
                 BookingStatusBadge(option.bookingStatus)
             }
 
             FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 MetaChip(
                     label = option.seatStatus.label(),
@@ -163,13 +164,13 @@ fun TrainOptionCard(
                 Text(
                     text = "停靠 ${option.stops.size} 站",
                     color = Color.White,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleSmall,
                     modifier = Modifier.weight(1f),
                 )
                 Text(
                     text = if (expanded) "收起" else "查看",
                     color = AccentBlue,
-                    style = MaterialTheme.typography.bodyLarge,
+                    style = MaterialTheme.typography.titleSmall,
                 )
                 Spacer(Modifier.width(6.dp))
                 Icon(
@@ -179,7 +180,11 @@ fun TrainOptionCard(
                 )
             }
 
-            AnimatedVisibility(visible = expanded) {
+            AnimatedVisibility(
+                visible = expanded,
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically(),
+            ) {
                 StopTimeline(stops = option.stops)
             }
         }
@@ -201,14 +206,14 @@ fun TrainOptionCard(
 private fun BookingStatusBadge(status: BookingStatus) {
     Surface(
         color = Color.Transparent,
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(18.dp),
         border = androidx.compose.foundation.BorderStroke(1.dp, status.color()),
     ) {
         Text(
             text = status.label(),
             color = status.color(),
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            style = MaterialTheme.typography.titleSmall,
+            modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp),
         )
     }
 }
@@ -223,13 +228,13 @@ private fun MetaChip(
     Surface(
         modifier = if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier,
         color = Color(0xFF242426),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(14.dp),
         border = androidx.compose.foundation.BorderStroke(1.dp, OutlineGray),
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
         ) {
             if (icon != null) {
                 icon()
@@ -241,7 +246,7 @@ private fun MetaChip(
             Text(
                 text = label,
                 color = color,
-                style = MaterialTheme.typography.titleSmall,
+                style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Medium,
             )
         }
