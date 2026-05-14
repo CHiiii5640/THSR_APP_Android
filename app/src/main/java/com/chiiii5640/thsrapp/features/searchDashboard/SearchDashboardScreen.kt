@@ -66,6 +66,7 @@ import com.chiiii5640.thsrapp.core.model.SourceStatus
 import com.chiiii5640.thsrapp.core.model.Station
 import com.chiiii5640.thsrapp.core.time.ThsrFormatters
 import com.chiiii5640.thsrapp.features.bookingNotifications.ScheduledNotificationsScreen
+import com.chiiii5640.thsrapp.features.bookingNotifications.ScheduledBookingNotification
 import com.chiiii5640.thsrapp.features.trainResults.TrainResultsGroup
 import com.chiiii5640.thsrapp.ui.theme.ThsrDesignTokens
 import java.time.Instant
@@ -188,7 +189,7 @@ fun SearchDashboardScreen(viewModel: SearchDashboardViewModel) {
                         item {
                             TrainResultsGroup(
                                 options = filtered,
-                                scheduledNotificationIds = state.scheduledNotifications.map { it.id }.toSet(),
+                                scheduledNotifications = state.scheduledNotifications.associateBy(ScheduledBookingNotification::id),
                                 onScheduleNotification = viewModel::scheduleNotification,
                             )
                         }

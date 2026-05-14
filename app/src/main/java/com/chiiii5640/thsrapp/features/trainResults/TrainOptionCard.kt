@@ -65,6 +65,7 @@ import com.chiiii5640.thsrapp.core.time.ThsrFormatters
 import com.chiiii5640.thsrapp.features.bookingNotifications.BookingNotificationDefaults
 import com.chiiii5640.thsrapp.features.bookingNotifications.BookingNotificationSheet
 import com.chiiii5640.thsrapp.features.bookingNotifications.BookingNotificationScheduler
+import com.chiiii5640.thsrapp.features.bookingNotifications.ScheduledBookingNotification
 import com.chiiii5640.thsrapp.ui.theme.ThsrDesignTokens
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -73,7 +74,7 @@ import java.time.LocalDateTime
 @Composable
 fun TrainResultsGroup(
     options: List<TrainOption>,
-    scheduledNotificationIds: Set<String>,
+    scheduledNotifications: Map<String, ScheduledBookingNotification>,
     onScheduleNotification: (TrainOption, LocalDateTime) -> Unit,
 ) {
     val tokens = ThsrDesignTokens
@@ -98,7 +99,7 @@ fun TrainResultsGroup(
             options.forEachIndexed { index, option ->
                 TrainOptionCard(
                     option = option,
-                    isNotificationScheduled = BookingNotificationScheduler.notificationId(option) in scheduledNotificationIds,
+                    scheduledNotification = scheduledNotifications[BookingNotificationScheduler.notificationId(option)],
                     onScheduleNotification = onScheduleNotification,
                 )
                 if (index != options.lastIndex) {
@@ -116,7 +117,7 @@ fun TrainResultsGroup(
 @Composable
 fun TrainOptionCard(
     option: TrainOption,
-    isNotificationScheduled: Boolean,
+    scheduledNotification: ScheduledBookingNotification?,
     onScheduleNotification: (TrainOption, LocalDateTime) -> Unit,
 ) {
     val tokens = ThsrDesignTokens
@@ -130,19 +131,16 @@ fun TrainOptionCard(
     var highlightNotification by remember(option.trainNo, option.travelDate, option.origin, option.destination) {
         mutableStateOf(false)
     }
+    val isNotificationScheduled = scheduledNotification != null
     val rowColor by animateColorAsState(
         targetValue = when {
             highlightNotification -> tokens.colors.warningOrange.copy(alpha = 0.16f)
+            isNotificationScheduled -> tokens.colors.warningOrange.copy(alpha = 0.12f)
             expanded -> tokens.colors.primaryBlue.copy(alpha = 0.08f)
             else -> tokens.colors.cardColor
         },
         animationSpec = tween(durationMillis = 180, easing = LinearEasing),
         label = "train-row-background",
-    )
-    val scale by animateFloatAsState(
-        targetValue = if (expanded) 1.01f else 1f,
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = 0.80f),
-        label = "train-row-scale",
     )
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
@@ -201,10 +199,6 @@ fun TrainOptionCard(
         Column(
             modifier = Modifier
                 .padding(horizontal = tokens.spacing.spacing16, vertical = 6.dp)
-                .graphicsLayer {
-                    scaleX = scale
-                    scaleY = scale
-                }
                 .clip(RoundedCornerShape(tokens.radii.cornerRadiusLarge))
                 .background(rowColor)
                 .padding(horizontal = 16.dp, vertical = 14.dp),
@@ -220,7 +214,10 @@ fun TrainOptionCard(
                     style = tokens.typography.cardTrainNo,
                 )
                 Spacer(Modifier.weight(1f))
-                Column(horizontalAlignment = Alignment.End) {
+                Column(
+                    horizontalAlignment = Alignment.End,
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
                     BookingStatusBadge(status = option.bookingStatus, expanded = expanded) {
                         expanded = !expanded
                     }
@@ -334,7 +331,8 @@ fun TrainOptionCard(
 
     if (showNotificationSheet) {
         BookingNotificationSheet(
-            initialReminderAt = BookingNotificationDefaults.reminderAt(option),
+            initialReminderAt = scheduledNotification?.reminderAt?.let(LocalDateTime::parse)
+                ?: BookingNotificationDefaults.reminderAt(option),
             onDismiss = { showNotificationSheet = false },
             onConfirm = { reminderAt ->
                 showNotificationSheet = false
@@ -348,13 +346,13 @@ fun TrainOptionCard(
 private fun ScheduledNotificationBadge() {
     val tokens = ThsrDesignTokens
     Surface(
-        color = tokens.colors.successGreen.copy(alpha = 0.12f),
+        color = tokens.colors.warningOrange.copy(alpha = 0.14f),
         shape = RoundedCornerShape(tokens.radii.chipRadius),
         tonalElevation = 0.dp,
     ) {
         Text(
             text = "已加入通知",
-            color = tokens.colors.successGreen,
+            color = tokens.colors.warningOrange,
             style = tokens.typography.captionStrong,
             modifier = Modifier.padding(
                 horizontal = tokens.spacing.spacing8,
