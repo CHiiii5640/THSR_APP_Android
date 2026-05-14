@@ -216,7 +216,7 @@ class FeedDiscountServiceTest {
                       "kind": "early_bird",
                       "train_number": "0640",
                       "direction": "南下",
-                      "departure_time": "14:11",
+                      "departure_time": "13:46",
                       "dates": ["2026-05-14"],
                       "offer": { "kind": "percentage", "percent": 80, "label": "早鳥8折" },
                       "priority": 10
@@ -241,6 +241,43 @@ class FeedDiscountServiceTest {
         )
 
         assertEquals(listOf("早鳥8折"), result.offersByTrainNo["640"]?.map { it.label })
+    }
+
+    @Test
+    fun discountsDoNotRequireSegmentDepartureTimeToMatchFeedDepartureTime() = runTest {
+        val service = FeedDiscountService(
+            client = FakeHttpClient(feedBody = """
+                {
+                  "rules": [
+                    {
+                      "kind": "student",
+                      "train_number": "0826",
+                      "direction": "北上",
+                      "departure_time": "13:00",
+                      "dates": ["2026-05-14"],
+                      "offer": { "kind": "percentage", "percent": 75, "label": "大學生75折" },
+                      "priority": 10
+                    }
+                  ]
+                }
+            """.trimIndent()),
+            feedUrl = "https://example.com/discounts.json",
+        )
+
+        val result = service.discounts(
+            date = LocalDate.of(2026, 5, 14),
+            trains = listOf(
+                com.chiiii5640.thsrapp.features.timetable.TimetableTrain(
+                    trainNo = "0826",
+                    departureTime = LocalTime.of(14, 20),
+                    arrivalTime = LocalTime.of(14, 50),
+                    stops = emptyList(),
+                ),
+            ),
+            forceRefresh = true,
+        )
+
+        assertEquals(listOf("大學生75折"), result.offersByTrainNo["0826"]?.map { it.label })
     }
 }
 

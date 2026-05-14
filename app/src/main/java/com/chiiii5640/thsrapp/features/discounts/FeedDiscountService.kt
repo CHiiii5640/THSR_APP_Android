@@ -198,8 +198,7 @@ class FeedDiscountService(
         val legacyOffers = feed.items
             .filter { item ->
                 item.trainNo in trainNoKeys &&
-                    date.toString() !in item.excludedDates &&
-                    train.departureTime.isWithin(item.departureStart, item.departureEnd)
+                    date.toString() !in item.excludedDates
             }
             .map { item ->
                 DiscountOffer(
@@ -216,8 +215,7 @@ class FeedDiscountService(
         val ruleOffers = feed.rules
             .filter { rule ->
                 trainNoLookupKeys(rule.trainNumber).any { it in trainNoKeys } &&
-                    rule.matches(date) &&
-                    rule.departureLocalTime() == train.departureTime
+                    rule.matches(date)
             }
             .sortedByDescending(DiscountFeedRule::priority)
             .mapNotNull { rule ->
@@ -245,10 +243,4 @@ private fun trainNoLookupKeys(trainNo: String): Set<String> {
     val normalized = if (withoutLeadingZeros.isEmpty()) "0" else withoutLeadingZeros
     val padded = normalized.padStart(4, '0')
     return linkedSetOf(trimmed, normalized, padded)
-}
-
-private fun LocalTime.isWithin(start: String?, end: String?): Boolean {
-    val lower = start?.let(LocalTime::parse)
-    val upper = end?.let(LocalTime::parse)
-    return (lower == null || !isBefore(lower)) && (upper == null || !isAfter(upper))
 }
