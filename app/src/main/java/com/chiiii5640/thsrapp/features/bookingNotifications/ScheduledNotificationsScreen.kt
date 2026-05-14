@@ -5,8 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Text
@@ -20,15 +18,18 @@ fun ScheduledNotificationsScreen(
     onCancel: (String) -> Unit,
 ) {
     if (notifications.isEmpty()) {
-        Text("尚未設定通知")
+        Text(
+            text = "尚未設定通知",
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+        )
         return
     }
 
-    LazyColumn(
+    Column(
         verticalArrangement = Arrangement.spacedBy(10.dp),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
+        modifier = Modifier.padding(16.dp),
     ) {
-        items(notifications, key = { it.id }) { notification ->
+        notifications.forEach { notification ->
             ScheduledNotificationRow(notification, onCancel)
         }
     }

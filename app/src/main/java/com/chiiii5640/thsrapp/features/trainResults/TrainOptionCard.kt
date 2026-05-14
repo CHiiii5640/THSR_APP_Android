@@ -54,7 +54,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.chiiii5640.thsrapp.core.model.BookingStatus
@@ -121,7 +120,6 @@ fun TrainOptionCard(
     onScheduleNotification: (TrainOption, LocalDateTime) -> Unit,
 ) {
     val tokens = ThsrDesignTokens
-    val uriHandler = LocalUriHandler.current
     val coroutineScope = rememberCoroutineScope()
     var showNotificationSheet by remember(option.trainNo, option.travelDate, option.origin, option.destination) {
         mutableStateOf(false)
@@ -202,14 +200,14 @@ fun TrainOptionCard(
     ) {
         Column(
             modifier = Modifier
-                .padding(tokens.spacing.spacing16)
+                .padding(horizontal = tokens.spacing.spacing16, vertical = 6.dp)
                 .graphicsLayer {
                     scaleX = scale
                     scaleY = scale
                 }
-                .clip(RoundedCornerShape(12.dp))
+                .clip(RoundedCornerShape(tokens.radii.cornerRadiusLarge))
                 .background(rowColor)
-                .padding(tokens.spacing.spacing12),
+                .padding(horizontal = 16.dp, vertical = 14.dp),
             verticalArrangement = Arrangement.spacedBy(tokens.spacing.spacing8),
         ) {
             Row(
@@ -258,22 +256,6 @@ fun TrainOptionCard(
                 SeatAvailabilityBlock(seatAvailability)
             }
 
-            HorizontalDivider(color = tokens.colors.dividerColor)
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                SourceLink(
-                    modifier = Modifier.weight(1f),
-                    label = option.source.timetable.cardSourceLabel(),
-                )
-                FooterAction(
-                    label = "前往訂票",
-                    onClick = { uriHandler.openUri(option.officialBookingUrl) },
-                )
-            }
-
             if (!expanded) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -319,24 +301,32 @@ fun TrainOptionCard(
                         },
                     )
                 }
-            } else if (option.bookingStatus == BookingStatus.NotYetOpen) {
+            } else {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Spacer(Modifier.weight(1f))
-                    FooterAction(
-                        label = "通知",
-                        onClick = ::openNotificationSheet,
-                        leading = {
-                            Icon(
-                                imageVector = Icons.Outlined.NotificationsNone,
-                                contentDescription = null,
-                                tint = tokens.colors.primaryBlue,
-                                modifier = Modifier.size(tokens.spacing.spacing16),
-                            )
-                        },
+                    Text(
+                        text = option.source.timetable.cardSourceLabel(),
+                        color = tokens.colors.textTertiary,
+                        style = tokens.typography.caption,
+                        modifier = Modifier.weight(1f),
                     )
+                    if (option.bookingStatus == BookingStatus.NotYetOpen) {
+                        Spacer(Modifier.width(tokens.spacing.spacing12))
+                        FooterAction(
+                            label = "通知",
+                            onClick = ::openNotificationSheet,
+                            leading = {
+                                Icon(
+                                    imageVector = Icons.Outlined.NotificationsNone,
+                                    contentDescription = null,
+                                    tint = tokens.colors.primaryBlue,
+                                    modifier = Modifier.size(tokens.spacing.spacing16),
+                                )
+                            },
+                        )
+                    }
                 }
             }
         }
@@ -580,31 +570,6 @@ private fun DiscountBadge(
                 horizontal = tokens.spacing.spacing8,
                 vertical = tokens.spacing.spacing4,
             ),
-        )
-    }
-}
-
-@Composable
-private fun SourceLink(
-    modifier: Modifier = Modifier,
-    label: String,
-) {
-    val tokens = ThsrDesignTokens
-    Row(
-        modifier = modifier,
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(tokens.spacing.spacing8),
-    ) {
-        Icon(
-            imageVector = Icons.Outlined.TravelExplore,
-            contentDescription = null,
-            tint = tokens.colors.primaryBlue,
-            modifier = Modifier.size(18.dp),
-        )
-        Text(
-            text = label,
-            color = tokens.colors.primaryBlue,
-            style = tokens.typography.bodyStrong,
         )
     }
 }

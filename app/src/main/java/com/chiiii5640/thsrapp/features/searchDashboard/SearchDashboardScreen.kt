@@ -38,19 +38,17 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimeInput
-import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -60,8 +58,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.text.lerp
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -92,38 +88,29 @@ fun SearchDashboardScreen(viewModel: SearchDashboardViewModel) {
     val filtered = state.selectedFilter.apply(result?.options.orEmpty())
     val tokens = ThsrDesignTokens
     val listState = rememberLazyListState()
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-    val collapsedFraction = scrollBehavior.state.collapsedFraction.coerceIn(0f, 1f)
-    val topTitleStyle = lerp(tokens.typography.largeTitle, tokens.typography.navTitle, collapsedFraction)
-    val isCollapsed by remember {
-        derivedStateOf {
-            listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 6
-        }
-    }
 
     Scaffold(
-        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         containerColor = tokens.colors.backgroundColor,
         topBar = {
-            LargeTopAppBar(
-                colors = TopAppBarDefaults.largeTopAppBarColors(
-                    containerColor = tokens.colors.backgroundColor,
-                    scrolledContainerColor = tokens.colors.backgroundColor,
-                    titleContentColor = tokens.colors.textPrimary,
-                    actionIconContentColor = tokens.colors.primaryBlue,
-                    navigationIconContentColor = tokens.colors.textSecondary,
-                ),
+            TopAppBar(
+                modifier = Modifier.height(tokens.sizes.navigationExpandedHeight),
                 title = {
                     Text(
                         text = if (state.showingScheduledNotifications) "通知列表" else "高鐵開票看板",
-                        style = topTitleStyle,
+                        style = tokens.typography.largeTitle,
                         color = tokens.colors.textPrimary,
                         modifier = Modifier.fillMaxWidth(),
-                        textAlign = if (isCollapsed) TextAlign.Center else TextAlign.Start,
+                        textAlign = TextAlign.Center,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                 },
+                colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(
+                    containerColor = tokens.colors.backgroundColor,
+                    titleContentColor = tokens.colors.textPrimary,
+                    actionIconContentColor = tokens.colors.primaryBlue,
+                    navigationIconContentColor = tokens.colors.textSecondary,
+                ),
                 navigationIcon = {
                     IconButton(
                         onClick = { viewModel.setShowingScheduledNotifications(!state.showingScheduledNotifications) },
@@ -150,7 +137,6 @@ fun SearchDashboardScreen(viewModel: SearchDashboardViewModel) {
                         )
                     }
                 },
-                scrollBehavior = scrollBehavior,
             )
         },
     ) { padding ->
@@ -163,7 +149,7 @@ fun SearchDashboardScreen(viewModel: SearchDashboardViewModel) {
             verticalArrangement = Arrangement.spacedBy(tokens.spacing.spacing12),
             contentPadding = PaddingValues(
                 start = tokens.spacing.spacing16,
-                top = tokens.spacing.spacing4,
+                top = tokens.spacing.spacing8,
                 end = tokens.spacing.spacing16,
                 bottom = tokens.spacing.spacing20,
             ),
@@ -596,9 +582,9 @@ private fun DataSourceSection(result: SearchResult) {
             }
         }
         Text(
-            text = "本次結果會優先使用 TDX，若官方來源缺資料才會退回快取或 fallback。",
+            text = "優先使用 TDX，缺資料時才退回快取或 fallback。",
             color = tokens.colors.textSecondary,
-            style = tokens.typography.body,
+            style = tokens.typography.caption,
             modifier = Modifier.padding(horizontal = tokens.spacing.spacing4),
         )
     }
@@ -645,7 +631,7 @@ private fun ResultFilterBar(
     LazyRow(
         modifier = Modifier.fillMaxWidth(),
         contentPadding = PaddingValues(start = tokens.spacing.spacing4, end = tokens.spacing.spacing16),
-        horizontalArrangement = Arrangement.spacedBy(tokens.spacing.spacing8),
+        horizontalArrangement = Arrangement.spacedBy(tokens.spacing.spacing12),
     ) {
         items(ResultFilter.entries, key = { it.name }) { filter ->
             FilterPill(
@@ -681,7 +667,7 @@ private fun FilterPill(
         Box(
             modifier = Modifier.padding(
                 horizontal = tokens.spacing.spacing16,
-                vertical = tokens.spacing.spacing8,
+                vertical = tokens.spacing.spacing4,
             ),
             contentAlignment = Alignment.Center,
         ) {
