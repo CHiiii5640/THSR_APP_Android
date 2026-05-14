@@ -37,6 +37,10 @@ import com.chiiii5640.thsrapp.core.time.ThsrFormatters
 import com.chiiii5640.thsrapp.ui.theme.ThsrDesignTokens
 import kotlinx.coroutines.delay
 
+private val timelineNodeWidth = 50.dp
+private val timelineLabelWidth = 48.dp
+private val timelineSegmentUnitWidth = 38.dp
+
 @Composable
 fun StopTimeline(stops: List<TimelineStop>) {
     val tokens = ThsrDesignTokens
@@ -64,12 +68,19 @@ fun StopTimeline(stops: List<TimelineStop>) {
                 verticalAlignment = Alignment.Top,
             ) {
                 stops.forEachIndexed { index, stop ->
-                    StopNode(
-                        stop = stop,
-                        index = index,
-                        isEndpoint = index == 0 || index == stops.lastIndex,
-                        isLast = index == stops.lastIndex,
-                    )
+                    Row(verticalAlignment = Alignment.Top) {
+                        StopNode(
+                            stop = stop,
+                            index = index,
+                            isEndpoint = index == 0 || index == stops.lastIndex,
+                        )
+                        if (index < stops.lastIndex) {
+                            TimelineSegment(
+                                from = stop,
+                                to = stops[index + 1],
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -81,7 +92,6 @@ private fun StopNode(
     stop: TimelineStop,
     index: Int,
     isEndpoint: Boolean,
-    isLast: Boolean,
 ) {
     val tokens = ThsrDesignTokens
     var visible by remember(stop.station, stop.arrivalTime, stop.departureTime) { mutableStateOf(false) }
@@ -96,7 +106,7 @@ private fun StopNode(
     }
     Column(
         modifier = Modifier
-            .width(56.dp)
+            .width(timelineNodeWidth)
             .graphicsLayer {
                 alpha = progress
                 translationY = (1f - progress) * 8.dp.toPx()
@@ -118,28 +128,46 @@ private fun StopNode(
                         },
                     ),
             )
-            if (!isLast) {
-                Spacer(
-                    modifier = Modifier
-                        .width(44.dp)
-                        .height(2.dp)
-                        .background(tokens.colors.primaryBlue.copy(alpha = 0.72f)),
-                )
-            }
         }
-        Text(
-            text = stop.station.localName,
-            color = tokens.colors.textPrimary,
-            style = tokens.typography.captionStrong,
-            fontWeight = FontWeight.SemiBold,
-        )
-        Text(
-            text = stop.displayTime(),
-            color = tokens.colors.textSecondary,
-            style = tokens.typography.caption,
-        )
+        Column(
+            verticalArrangement = Arrangement.spacedBy(3.dp),
+            modifier = Modifier.width(timelineLabelWidth),
+        ) {
+            Text(
+                text = stop.displayTime(),
+                color = tokens.colors.textPrimary,
+                style = tokens.typography.captionStrong,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = stop.station.localName,
+                color = if (isEndpoint) tokens.colors.textPrimary else tokens.colors.textSecondary,
+                style = tokens.typography.caption,
+                fontWeight = if (isEndpoint) FontWeight.SemiBold else FontWeight.Normal,
+            )
+        }
     }
 }
+
+@Composable
+private fun TimelineSegment(
+    from: TimelineStop,
+    to: TimelineStop,
+) {
+    val tokens = ThsrDesignTokens
+    Spacer(
+        modifier = Modifier
+            .width(timelineSegmentWidth(from, to))
+            .height(2.dp)
+            .background(tokens.colors.primaryBlue.copy(alpha = 0.72f))
+            .padding(top = 6.dp),
+    )
+}
+
+private fun timelineSegmentWidth(
+    from: TimelineStop,
+    to: TimelineStop,
+) = timelineSegmentUnitWidth * maxOf(kotlin.math.abs(to.station.sortIndex - from.station.sortIndex), 1)
 
 private fun TimelineStop.displayTime(): String =
     departureTime?.let(ThsrFormatters::displayTimetableTime)

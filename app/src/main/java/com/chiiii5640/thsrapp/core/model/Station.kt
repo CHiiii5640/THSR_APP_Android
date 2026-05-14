@@ -18,6 +18,9 @@ enum class Station(
     Tainan("1060", "TNN", "台南"),
     Zuoying("1070", "ZUY", "左營");
 
+    val sortIndex: Int
+        get() = ordinal
+
     companion object {
         fun fromId(id: String): Station? = entries.firstOrNull { it.id == id }
         fun fromCode(code: String): Station? = entries.firstOrNull { it.code == code }
