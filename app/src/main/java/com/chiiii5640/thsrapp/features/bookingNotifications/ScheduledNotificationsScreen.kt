@@ -73,9 +73,9 @@ private fun ScheduledNotificationRow(
     val estimatedOpeningDate = notification.estimatedOpeningDate().format(DateTimeFormatter.ofPattern("yyyy/MM/dd"))
     val backgroundColor by animateColorAsState(
         targetValue = if (dismissState.targetValue == SwipeToDismissBoxValue.EndToStart) {
-            tokens.colors.dangerRed.copy(alpha = 0.22f)
+            tokens.colors.dangerRed.copy(alpha = 0.88f)
         } else {
-            tokens.colors.warningOrange.copy(alpha = 0.20f)
+            Color.Transparent
         },
         animationSpec = tween(220),
         label = "scheduled-notification-delete-bg",
@@ -96,7 +96,7 @@ private fun ScheduledNotificationRow(
                 contentAlignment = Alignment.CenterEnd,
             ) {
                 Text(
-                    text = "刪除",
+                    text = "取消通知",
                     color = Color.White,
                     style = tokens.typography.action,
                     fontWeight = FontWeight.SemiBold,

@@ -113,13 +113,31 @@ fun SearchDashboardScreen(viewModel: SearchDashboardViewModel) {
                     navigationIconContentColor = tokens.colors.textSecondary,
                 ),
                 navigationIcon = {
-                    IconButton(
-                        onClick = { viewModel.setShowingScheduledNotifications(!state.showingScheduledNotifications) },
+                    Box(
+                        modifier = Modifier
+                            .padding(start = 8.dp)
+                            .background(
+                                color = if (state.scheduledNotifications.isNotEmpty()) {
+                                    tokens.colors.primaryBlue.copy(alpha = 0.16f)
+                                } else {
+                                    Color.Transparent
+                                },
+                                shape = CircleShape,
+                            ),
                     ) {
-                        Icon(
-                            imageVector = Icons.Outlined.NotificationsNone,
-                            contentDescription = if (state.showingScheduledNotifications) "回查詢" else "通知列表",
-                        )
+                        IconButton(
+                            onClick = { viewModel.setShowingScheduledNotifications(!state.showingScheduledNotifications) },
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.NotificationsNone,
+                                contentDescription = if (state.showingScheduledNotifications) "回查詢" else "通知列表",
+                                tint = if (state.scheduledNotifications.isNotEmpty()) {
+                                    tokens.colors.warningOrange
+                                } else {
+                                    tokens.colors.textSecondary
+                                },
+                            )
+                        }
                     }
                 },
                 actions = {

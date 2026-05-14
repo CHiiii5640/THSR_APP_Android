@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -160,6 +161,19 @@ fun TrainOptionCard(
         animationSpec = tween(durationMillis = 180, easing = LinearEasing),
         label = "train-row-background",
     )
+    val swipeBackgroundColor by animateColorAsState(
+        targetValue = if (
+            dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart ||
+            pendingNotificationSheetBySwipe ||
+            highlightNotification
+        ) {
+            tokens.colors.warningOrange.copy(alpha = 0.88f)
+        } else {
+            Color.Transparent
+        },
+        animationSpec = tween(durationMillis = 220),
+        label = "train-row-swipe-background",
+    )
     fun openNotificationSheet() {
         highlightNotification = true
         coroutineScope.launch {
@@ -191,8 +205,8 @@ fun TrainOptionCard(
             backgroundContent = {
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .background(tokens.colors.warningOrange.copy(alpha = 0.22f))
+                        .fillMaxSize()
+                        .background(swipeBackgroundColor)
                         .padding(horizontal = tokens.spacing.spacing16),
                     contentAlignment = Alignment.CenterEnd,
                 ) {
@@ -372,13 +386,13 @@ fun TrainOptionCard(
 private fun ScheduledNotificationBadge() {
     val tokens = ThsrDesignTokens
     Surface(
-        color = tokens.colors.warningOrange.copy(alpha = 0.14f),
+        color = tokens.colors.successGreen.copy(alpha = 0.20f),
         shape = RoundedCornerShape(tokens.radii.chipRadius),
         tonalElevation = 0.dp,
     ) {
         Text(
             text = "已加入通知",
-            color = tokens.colors.warningOrange,
+            color = tokens.colors.successGreen,
             style = tokens.typography.captionStrong,
             modifier = Modifier.padding(
                 horizontal = tokens.spacing.spacing8,
@@ -641,8 +655,8 @@ private fun trainNotificationVisualState(
         colors.primaryBlue
     }
     val cardTint = when {
-        highlightNotification -> colors.warningOrange.copy(alpha = 0.18f)
-        isNotificationScheduled -> colors.warningOrange.copy(alpha = 0.12f)
+        highlightNotification -> colors.warningOrange.copy(alpha = 0.16f)
+        isNotificationScheduled -> Color(0xFF193624)
         expanded -> colors.primaryBlue.copy(alpha = 0.08f)
         else -> colors.cardColor
     }
