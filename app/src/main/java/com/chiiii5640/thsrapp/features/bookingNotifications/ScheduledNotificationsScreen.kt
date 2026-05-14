@@ -190,4 +190,5 @@ private fun String.displayScheduledReminder(): String =
     LocalDateTime.parse(this).format(DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss"))
 
 private fun ScheduledBookingNotification.estimatedOpeningDate(): LocalDate =
-    LocalDate.parse(reminderAt.substringBefore('T')).plusDays(1)
+    openingDate?.let(LocalDate::parse)
+        ?: LocalDate.parse(reminderAt.substringBefore('T')).plusDays(1)

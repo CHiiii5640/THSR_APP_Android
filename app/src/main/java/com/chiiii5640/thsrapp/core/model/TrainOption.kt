@@ -29,6 +29,12 @@ data class TrainOption(
 
     val officialBookingUrl: String
         get() = "https://irs.thsrc.com.tw/IMINT/?locale=tw"
+
+    val bookingNotificationOpeningDate: LocalDate?
+        get() = (bookingStatus as? BookingStatus.NotYetOpen)?.openingDate
+
+    val canScheduleBookingNotification: Boolean
+        get() = bookingNotificationOpeningDate != null
 }
 
 data class TimelineStop(
@@ -37,10 +43,12 @@ data class TimelineStop(
     val departureTime: LocalTime?,
 )
 
-enum class BookingStatus {
-    Available,
-    NotYetOpen,
-    Closed,
+sealed class BookingStatus {
+    object Available : BookingStatus()
+
+    data class NotYetOpen(val openingDate: LocalDate) : BookingStatus()
+
+    object Closed : BookingStatus()
 }
 
 enum class SeatStatus {

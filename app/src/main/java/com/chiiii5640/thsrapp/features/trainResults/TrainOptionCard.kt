@@ -73,12 +73,15 @@ import com.chiiii5640.thsrapp.ui.theme.ThsrDesignTokens
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 
 private data class TrainNotificationVisualState(
     val actionTint: Color,
     val cardTint: Color,
     val shouldShowBadge: Boolean,
 )
+
+private val bookingStatusDateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy/MM/dd")
 
 @Composable
 fun TrainResultsGroup(
@@ -146,7 +149,7 @@ fun TrainOptionCard(
     val isNotificationScheduled = scheduledNotification != null
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
-            if (value == SwipeToDismissBoxValue.EndToStart && option.bookingStatus == BookingStatus.NotYetOpen) {
+            if (value == SwipeToDismissBoxValue.EndToStart && option.bookingStatus is BookingStatus.NotYetOpen) {
                 highlightNotification = true
                 pendingNotificationSheetBySwipe = true
             }
@@ -201,7 +204,7 @@ fun TrainOptionCard(
         SwipeToDismissBox(
             state = dismissState,
             enableDismissFromStartToEnd = false,
-            enableDismissFromEndToStart = option.bookingStatus == BookingStatus.NotYetOpen,
+            enableDismissFromEndToStart = option.bookingStatus is BookingStatus.NotYetOpen,
             backgroundContent = {
                 Box(
                     modifier = Modifier
@@ -300,7 +303,7 @@ fun TrainOptionCard(
                             style = tokens.typography.bodyStrong,
                             modifier = Modifier.weight(1f),
                         )
-                        if (option.bookingStatus == BookingStatus.NotYetOpen) {
+                        if (option.bookingStatus is BookingStatus.NotYetOpen) {
                             FooterAction(
                                 label = "通知",
                                 tint = notificationState.actionTint,
@@ -346,7 +349,7 @@ fun TrainOptionCard(
                             style = tokens.typography.caption,
                             modifier = Modifier.weight(1f),
                         )
-                        if (option.bookingStatus == BookingStatus.NotYetOpen) {
+                        if (option.bookingStatus is BookingStatus.NotYetOpen) {
                             Spacer(Modifier.width(tokens.spacing.spacing12))
                             FooterAction(
                                 label = "通知",
@@ -466,7 +469,7 @@ private fun BookingStatusBadge(
     val tint = status.color()
     val icon = when (status) {
         BookingStatus.Available -> Icons.Outlined.CheckCircle
-        BookingStatus.NotYetOpen -> Icons.Outlined.Schedule
+        is BookingStatus.NotYetOpen -> Icons.Outlined.Schedule
         BookingStatus.Closed -> Icons.Outlined.ErrorOutline
     }
     val interactionSource = remember { MutableInteractionSource() }
@@ -669,13 +672,13 @@ private fun trainNotificationVisualState(
 
 private fun BookingStatus.label(): String = when (this) {
     BookingStatus.Available -> "可訂位"
-    BookingStatus.NotYetOpen -> "尚未開賣"
+    is BookingStatus.NotYetOpen -> "未開放，預估 ${openingDate.format(bookingStatusDateFormatter)}"
     BookingStatus.Closed -> "已過訂位期限"
 }
 
 private fun BookingStatus.color(): Color = when (this) {
     BookingStatus.Available -> ThsrDesignTokens.colors.successGreen
-    BookingStatus.NotYetOpen -> ThsrDesignTokens.colors.primaryBlue
+    is BookingStatus.NotYetOpen -> ThsrDesignTokens.colors.primaryBlue
     BookingStatus.Closed -> ThsrDesignTokens.colors.warningOrange
 }
 

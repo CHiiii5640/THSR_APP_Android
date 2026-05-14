@@ -9,7 +9,7 @@ object BookingNotificationDefaults {
     private val defaultReminderTime: LocalTime = LocalTime.of(23, 55)
 
     fun estimatedOpeningDate(option: TrainOption): LocalDate =
-        option.travelDate.minusDays(28)
+        option.bookingNotificationOpeningDate ?: option.travelDate.minusDays(28)
 
     fun reminderAt(option: TrainOption): LocalDateTime =
         estimatedOpeningDate(option)

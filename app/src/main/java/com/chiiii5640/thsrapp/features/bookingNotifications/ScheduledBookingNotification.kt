@@ -10,4 +10,5 @@ data class ScheduledBookingNotification(
     val originName: String,
     val destinationName: String,
     val reminderAt: String,
+    val openingDate: String? = null,
 )

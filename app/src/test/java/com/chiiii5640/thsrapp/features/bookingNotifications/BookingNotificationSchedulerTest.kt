@@ -24,7 +24,7 @@ class BookingNotificationSchedulerTest {
             departureTime = LocalTime.of(8, 0),
             arrivalTime = LocalTime.of(10, 0),
             stops = emptyList(),
-            bookingStatus = BookingStatus.NotYetOpen,
+            bookingStatus = BookingStatus.NotYetOpen(LocalDate.of(2026, 5, 4)),
             seatAvailability = null,
             discounts = emptyList(),
             source = TrainDataSource(
@@ -73,7 +73,7 @@ class BookingNotificationSchedulerTest {
             departureTime = LocalTime.of(8, 0),
             arrivalTime = LocalTime.of(10, 0),
             stops = emptyList(),
-            bookingStatus = BookingStatus.NotYetOpen,
+            bookingStatus = BookingStatus.NotYetOpen(LocalDate.of(2026, 5, 4)),
             seatAvailability = null,
             discounts = emptyList(),
             source = TrainDataSource(
@@ -100,5 +100,6 @@ class BookingNotificationSchedulerTest {
             originName = "台北",
             destinationName = "左營",
             reminderAt = reminderAt,
+            openingDate = "2026-05-04",
         )
 }

@@ -21,6 +21,8 @@ class SearchDashboardService(
     private val fallbackTimetableProvider: FallbackTimetableProvider? = null,
     private val clock: Clock,
 ) {
+    private val bookingWindowCalculator = BookingWindowCalculator(clock)
+
     suspend fun search(query: TripQuery): SearchResult {
         val primaryTimetable = timetableProvider.trains(query)
         val fallbackTimetable = if (primaryTimetable.trains.isEmpty()) {
@@ -79,7 +81,10 @@ class SearchDashboardService(
                 departureTime = train.departureTime,
                 arrivalTime = train.arrivalTime,
                 stops = train.stops,
-                bookingStatus = bookingStatus(query),
+                bookingStatus = bookingWindowCalculator.bookingStatus(
+                    travelDate = query.travelDate,
+                    departureTime = train.departureTime,
+                ),
                 seatAvailability = seats.seatsByTrainNo[train.trainNo],
                 discounts = discounts.offersByTrainNo[train.trainNo].orEmpty(),
                 source = TrainDataSource(
@@ -94,15 +99,6 @@ class SearchDashboardService(
             options = options,
             sourceStatuses = listOf(timetable.status, seats.status, discounts.status),
         )
-    }
-
-    private fun bookingStatus(query: TripQuery): BookingStatus {
-        val today = LocalDate.now(clock)
-        return when {
-            query.travelDate.isBefore(today) -> BookingStatus.Closed
-            query.travelDate.isAfter(today.plusDays(28)) -> BookingStatus.NotYetOpen
-            else -> BookingStatus.Available
-        }
     }
 }
 

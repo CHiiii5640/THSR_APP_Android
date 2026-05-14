@@ -9,6 +9,7 @@ import com.chiiii5640.thsrapp.core.model.SourceStatus
 import com.chiiii5640.thsrapp.core.model.Station
 import com.chiiii5640.thsrapp.core.model.TimelineStop
 import com.chiiii5640.thsrapp.core.model.TripQuery
+import com.chiiii5640.thsrapp.core.model.BookingStatus
 import com.chiiii5640.thsrapp.features.discounts.DiscountProvider
 import com.chiiii5640.thsrapp.features.discounts.DiscountResult
 import com.chiiii5640.thsrapp.features.seatAvailability.SeatAvailabilityProvider
@@ -123,6 +124,27 @@ class SearchDashboardServiceTest {
 
         assertTrue(result.options.isEmpty())
         assertEquals("discount feed timetable fallback empty", result.sourceStatuses.first().label)
+    }
+
+    @Test
+    fun futureTripsReturnNotYetOpenWithEstimatedOpeningDate() = runTest {
+        val service = SearchDashboardService(
+            timetableProvider = FakeTimetableProvider(listOf(train(0))),
+            seatAvailabilityProvider = FakeSeatProvider(),
+            discountProvider = FakeDiscountProvider(),
+            clock = clock,
+        )
+
+        val result = service.search(
+            query().copy(
+                travelDate = LocalDate.of(2026, 6, 10),
+                departureAfter = LocalTime.MIDNIGHT,
+            ),
+        )
+
+        val status = result.options.single().bookingStatus
+        assertTrue(status is BookingStatus.NotYetOpen)
+        assertEquals(LocalDate.of(2026, 5, 13), (status as BookingStatus.NotYetOpen).openingDate)
     }
 
     private fun query(): TripQuery = TripQuery(

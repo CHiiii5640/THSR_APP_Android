@@ -93,4 +93,5 @@ private fun TrainOption.toScheduledNotification(reminderAt: LocalDateTime): Sche
         originName = origin.localName,
         destinationName = destination.localName,
         reminderAt = reminderAt.toString(),
+        openingDate = bookingNotificationOpeningDate?.toString(),
     )
