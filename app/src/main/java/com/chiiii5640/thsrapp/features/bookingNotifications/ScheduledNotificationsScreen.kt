@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -81,63 +82,73 @@ private fun ScheduledNotificationRow(
         label = "scheduled-notification-delete-bg",
     )
 
-    SwipeToDismissBox(
-        state = dismissState,
-        enableDismissFromStartToEnd = false,
+    Box(
         modifier = Modifier
             .fillMaxWidth()
             .clip(shape),
-        backgroundContent = {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(backgroundColor)
-                    .padding(horizontal = 20.dp),
-                contentAlignment = Alignment.CenterEnd,
-            ) {
-                Text(
-                    text = "取消通知",
-                    color = Color.White,
-                    style = tokens.typography.action,
-                    fontWeight = FontWeight.SemiBold,
-                )
-            }
-        },
     ) {
-        Surface(
+        SwipeToDismissBox(
+            state = dismissState,
+            enableDismissFromStartToEnd = false,
             modifier = Modifier.fillMaxWidth(),
-            shape = shape,
-            color = tokens.colors.cardColor,
-            tonalElevation = 0.dp,
-        ) {
-            Column(
-                modifier = Modifier.padding(horizontal = 18.dp, vertical = 18.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Text(
-                    text = "高鐵 ${notification.trainNo.padStart(4, '0')} 開放訂票提醒",
-                    color = tokens.colors.textPrimary,
-                    style = tokens.typography.formLabel,
-                )
-                Text(
-                    text = "${notification.originName}到${notification.destinationName} ${notification.travelDate.displayScheduledTravelDate()} 的車票預估於 $estimatedOpeningDate 開放訂票。",
-                    color = tokens.colors.textSecondary,
-                    style = tokens.typography.body,
-                )
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+            backgroundContent = {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    shape = shape,
+                    color = backgroundColor,
+                    tonalElevation = 0.dp,
                 ) {
-                    Icon(
-                        imageVector = Icons.Outlined.NotificationsNone,
-                        contentDescription = null,
-                        tint = tokens.colors.warningOrange,
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 20.dp),
+                        contentAlignment = Alignment.CenterEnd,
+                    ) {
+                        Text(
+                            text = "取消通知",
+                            color = Color.White,
+                            style = tokens.typography.action,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                }
+            },
+        ) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = shape,
+                color = tokens.colors.cardColor,
+                tonalElevation = 0.dp,
+            ) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 18.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Text(
+                        text = "高鐵 ${notification.trainNo.padStart(4, '0')} 開放訂票提醒",
+                        color = tokens.colors.textPrimary,
+                        style = tokens.typography.formLabel,
                     )
                     Text(
-                        text = "${notification.reminderAt.displayScheduledReminder()} 提醒",
-                        color = tokens.colors.warningOrange,
-                        style = tokens.typography.bodyStrong,
+                        text = "${notification.originName}到${notification.destinationName} ${notification.travelDate.displayScheduledTravelDate()} 的車票預估於 $estimatedOpeningDate 開放訂票。",
+                        color = tokens.colors.textSecondary,
+                        style = tokens.typography.body,
                     )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.NotificationsNone,
+                            contentDescription = null,
+                            tint = tokens.colors.warningOrange,
+                        )
+                        Text(
+                            text = "${notification.reminderAt.displayScheduledReminder()} 提醒",
+                            color = tokens.colors.warningOrange,
+                            style = tokens.typography.bodyStrong,
+                        )
+                    }
                 }
             }
         }
