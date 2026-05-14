@@ -678,7 +678,7 @@ private fun BookingStatus.label(): String = when (this) {
 
 private fun BookingStatus.color(): Color = when (this) {
     BookingStatus.Available -> ThsrDesignTokens.colors.successGreen
-    is BookingStatus.NotYetOpen -> ThsrDesignTokens.colors.primaryBlue
+    is BookingStatus.NotYetOpen -> ThsrDesignTokens.colors.warningOrange
     BookingStatus.Closed -> ThsrDesignTokens.colors.warningOrange
 }
 
