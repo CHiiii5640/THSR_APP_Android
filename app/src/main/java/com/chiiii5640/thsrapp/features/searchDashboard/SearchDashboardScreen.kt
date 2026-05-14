@@ -135,7 +135,7 @@ fun SearchDashboardScreen(viewModel: SearchDashboardViewModel) {
                     }
                 },
                 actions = {
-                    IconButton(onClick = viewModel::forceRefresh) {
+                    IconButton(onClick = viewModel::search) {
                         Icon(
                             imageVector = Icons.Outlined.Search,
                             contentDescription = "查詢",
@@ -202,6 +202,7 @@ fun SearchDashboardScreen(viewModel: SearchDashboardViewModel) {
                         item {
                             TrainResultsGroup(
                                 options = filtered,
+                                scheduledNotificationIds = state.scheduledNotifications.map { it.id }.toSet(),
                                 onScheduleNotification = viewModel::scheduleNotification,
                             )
                         }
@@ -642,7 +643,8 @@ private fun ResultFilterBar(
 ) {
     val tokens = ThsrDesignTokens
     LazyRow(
-        contentPadding = PaddingValues(horizontal = tokens.spacing.spacing4),
+        modifier = Modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(start = tokens.spacing.spacing4, end = tokens.spacing.spacing16),
         horizontalArrangement = Arrangement.spacedBy(tokens.spacing.spacing8),
     ) {
         items(ResultFilter.entries, key = { it.name }) { filter ->

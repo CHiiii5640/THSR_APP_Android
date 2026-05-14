@@ -1,5 +1,9 @@
 package com.chiiii5640.thsrapp.features.trainResults
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -18,13 +22,20 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.chiiii5640.thsrapp.core.model.TimelineStop
 import com.chiiii5640.thsrapp.core.time.ThsrFormatters
 import com.chiiii5640.thsrapp.ui.theme.ThsrDesignTokens
+import kotlinx.coroutines.delay
 
 @Composable
 fun StopTimeline(stops: List<TimelineStop>) {
@@ -55,6 +66,8 @@ fun StopTimeline(stops: List<TimelineStop>) {
                 stops.forEachIndexed { index, stop ->
                     StopNode(
                         stop = stop,
+                        index = index,
+                        isEndpoint = index == 0 || index == stops.lastIndex,
                         isLast = index == stops.lastIndex,
                     )
                 }
@@ -66,26 +79,51 @@ fun StopTimeline(stops: List<TimelineStop>) {
 @Composable
 private fun StopNode(
     stop: TimelineStop,
+    index: Int,
+    isEndpoint: Boolean,
     isLast: Boolean,
 ) {
     val tokens = ThsrDesignTokens
+    var visible by remember(stop.station, stop.arrivalTime, stop.departureTime) { mutableStateOf(false) }
+    val progress by animateFloatAsState(
+        targetValue = if (visible) 1f else 0f,
+        animationSpec = tween(durationMillis = 220, easing = LinearEasing),
+        label = "timeline-node",
+    )
+    LaunchedEffect(index, stop.station, stop.arrivalTime, stop.departureTime) {
+        delay(index * 30L)
+        visible = true
+    }
     Column(
-        modifier = Modifier.width(84.dp),
+        modifier = Modifier
+            .width(56.dp)
+            .graphicsLayer {
+                alpha = progress
+                translationY = (1f - progress) * 8.dp.toPx()
+                scaleX = 0.92f + (0.08f * progress)
+                scaleY = 0.92f + (0.08f * progress)
+            },
         horizontalAlignment = Alignment.Start,
         verticalArrangement = Arrangement.spacedBy(tokens.spacing.spacing4),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier
-                    .size(tokens.sizes.statusDot)
-                    .background(tokens.colors.primaryBlue, CircleShape),
+                    .size(10.dp)
+                    .then(
+                        if (isEndpoint) {
+                            Modifier.background(tokens.colors.primaryBlue, CircleShape)
+                        } else {
+                            Modifier.border(2.dp, tokens.colors.primaryBlue, CircleShape)
+                        },
+                    ),
             )
             if (!isLast) {
                 Spacer(
                     modifier = Modifier
-                        .width(76.dp)
+                        .width(44.dp)
                         .height(2.dp)
-                        .background(tokens.colors.dividerColor),
+                        .background(tokens.colors.primaryBlue.copy(alpha = 0.72f)),
                 )
             }
         }

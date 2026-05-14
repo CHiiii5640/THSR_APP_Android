@@ -68,6 +68,7 @@ class SearchDashboardViewModel(
     }
     fun setFilter(filter: ResultFilter) = _uiState.update { it.copy(selectedFilter = filter) }
     fun setShowingScheduledNotifications(showing: Boolean) = _uiState.update { it.copy(showingScheduledNotifications = showing) }
+    fun search() = submit(forceRefresh = false)
     fun forceRefresh() = submit(forceRefresh = true)
     fun scheduleNotification(option: TrainOption, reminderAt: LocalDateTime) {
         bookingNotificationScheduler.schedule(option, reminderAt)

@@ -1,6 +1,12 @@
 package com.chiiii5640.thsrapp.features.trainResults
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -26,28 +32,32 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.ErrorOutline
-import androidx.compose.material.icons.outlined.LocalOffer
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.TravelExplore
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.chiiii5640.thsrapp.core.model.BookingStatus
-import com.chiiii5640.thsrapp.core.model.DiscountType
 import com.chiiii5640.thsrapp.core.model.SeatAvailabilityDetail
 import com.chiiii5640.thsrapp.core.model.SeatStatus
 import com.chiiii5640.thsrapp.core.model.SourceState
@@ -55,12 +65,16 @@ import com.chiiii5640.thsrapp.core.model.TrainOption
 import com.chiiii5640.thsrapp.core.time.ThsrFormatters
 import com.chiiii5640.thsrapp.features.bookingNotifications.BookingNotificationDefaults
 import com.chiiii5640.thsrapp.features.bookingNotifications.BookingNotificationSheet
+import com.chiiii5640.thsrapp.features.bookingNotifications.BookingNotificationScheduler
 import com.chiiii5640.thsrapp.ui.theme.ThsrDesignTokens
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 
 @Composable
 fun TrainResultsGroup(
     options: List<TrainOption>,
+    scheduledNotificationIds: Set<String>,
     onScheduleNotification: (TrainOption, LocalDateTime) -> Unit,
 ) {
     val tokens = ThsrDesignTokens
@@ -85,6 +99,7 @@ fun TrainResultsGroup(
             options.forEachIndexed { index, option ->
                 TrainOptionCard(
                     option = option,
+                    isNotificationScheduled = BookingNotificationScheduler.notificationId(option) in scheduledNotificationIds,
                     onScheduleNotification = onScheduleNotification,
                 )
                 if (index != options.lastIndex) {
@@ -98,103 +113,221 @@ fun TrainResultsGroup(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun TrainOptionCard(
     option: TrainOption,
+    isNotificationScheduled: Boolean,
     onScheduleNotification: (TrainOption, LocalDateTime) -> Unit,
 ) {
     val tokens = ThsrDesignTokens
     val uriHandler = LocalUriHandler.current
+    val coroutineScope = rememberCoroutineScope()
     var showNotificationSheet by remember(option.trainNo, option.travelDate, option.origin, option.destination) {
         mutableStateOf(false)
     }
     var expanded by remember(option.trainNo, option.travelDate, option.origin, option.destination) {
         mutableStateOf(false)
     }
-
-    Column(
-        modifier = Modifier.padding(tokens.spacing.spacing16),
-        verticalArrangement = Arrangement.spacedBy(tokens.spacing.spacing8),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.Top,
-        ) {
-            Text(
-                text = option.trainNo.padStart(4, '0'),
-                color = tokens.colors.textPrimary,
-                style = tokens.typography.cardTrainNo,
-            )
-            Spacer(Modifier.weight(1f))
-            BookingStatusBadge(status = option.bookingStatus, expanded = expanded) {
-                expanded = !expanded
+    var highlightNotification by remember(option.trainNo, option.travelDate, option.origin, option.destination) {
+        mutableStateOf(false)
+    }
+    val rowColor by animateColorAsState(
+        targetValue = when {
+            highlightNotification -> tokens.colors.warningOrange.copy(alpha = 0.16f)
+            expanded -> tokens.colors.primaryBlue.copy(alpha = 0.08f)
+            else -> tokens.colors.cardColor
+        },
+        animationSpec = tween(durationMillis = 180, easing = LinearEasing),
+        label = "train-row-background",
+    )
+    val scale by animateFloatAsState(
+        targetValue = if (expanded) 1.01f else 1f,
+        animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = 0.80f),
+        label = "train-row-scale",
+    )
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { value ->
+            if (value == SwipeToDismissBoxValue.EndToStart && option.bookingStatus == BookingStatus.NotYetOpen) {
+                highlightNotification = true
+                coroutineScope.launch {
+                    delay(180)
+                    showNotificationSheet = true
+                    highlightNotification = false
+                }
             }
+            false
+        },
+    )
+    fun openNotificationSheet() {
+        highlightNotification = true
+        coroutineScope.launch {
+            delay(180)
+            showNotificationSheet = true
+            highlightNotification = false
         }
+    }
 
-        TimeRouteRow(option = option)
-
-        AnimatedVisibility(
-            visible = expanded,
-            enter = fadeIn() + expandVertically(),
-            exit = fadeOut() + shrinkVertically(),
-        ) {
-            StopTimeline(stops = option.stops)
-        }
-
-        if (option.discounts.isNotEmpty()) {
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(tokens.spacing.spacing8),
-                verticalArrangement = Arrangement.spacedBy(tokens.spacing.spacing8),
+    SwipeToDismissBox(
+        state = dismissState,
+        enableDismissFromStartToEnd = false,
+        enableDismissFromEndToStart = option.bookingStatus == BookingStatus.NotYetOpen,
+        backgroundContent = {
+            Box(
+                modifier = Modifier
+                    .padding(tokens.spacing.spacing16)
+                    .fillMaxWidth()
+                    .background(tokens.colors.warningOrange.copy(alpha = 0.16f), RoundedCornerShape(12.dp))
+                    .padding(horizontal = tokens.spacing.spacing16),
+                contentAlignment = Alignment.CenterEnd,
             ) {
-                option.discounts.forEach { discount ->
-                    DiscountBadge(
-                        label = discount.label,
-                        color = when (discount.type) {
-                            DiscountType.EarlyBird,
-                            DiscountType.CollegeStudent -> tokens.colors.warningOrange
-                            DiscountType.Other -> tokens.colors.textPrimary
-                        },
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(tokens.spacing.spacing8),
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.NotificationsNone,
+                        contentDescription = null,
+                        tint = tokens.colors.warningOrange,
+                        modifier = Modifier.size(tokens.spacing.spacing16),
+                    )
+                    Text(
+                        text = "通知",
+                        color = tokens.colors.warningOrange,
+                        style = tokens.typography.action,
                     )
                 }
             }
-        }
-
-        option.seatAvailability?.let { seatAvailability ->
-            SeatAvailabilityBlock(seatAvailability)
-        }
-
-        HorizontalDivider(color = tokens.colors.dividerColor)
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
+        },
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(tokens.spacing.spacing16)
+                .graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                }
+                .clip(RoundedCornerShape(12.dp))
+                .background(rowColor)
+                .padding(tokens.spacing.spacing12),
+            verticalArrangement = Arrangement.spacedBy(tokens.spacing.spacing8),
         ) {
-            SourceLink(
-                modifier = Modifier.weight(1f),
-                label = option.source.timetable.cardSourceLabel(),
-            )
-            FooterAction(
-                label = "前往訂票",
-                onClick = { uriHandler.openUri(option.officialBookingUrl) },
-            )
-        }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Top,
+            ) {
+                Text(
+                    text = option.trainNo.padStart(4, '0'),
+                    color = tokens.colors.textPrimary,
+                    style = tokens.typography.cardTrainNo,
+                )
+                Spacer(Modifier.weight(1f))
+                Column(horizontalAlignment = Alignment.End) {
+                    BookingStatusBadge(status = option.bookingStatus, expanded = expanded) {
+                        expanded = !expanded
+                    }
+                    if (isNotificationScheduled) {
+                        ScheduledNotificationBadge()
+                    }
+                }
+            }
 
-        if (!expanded) {
+            TimeRouteRow(option = option)
+
+            AnimatedVisibility(
+                visible = expanded,
+                enter = fadeIn(animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = 0.80f)) +
+                    expandVertically(animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = 0.80f)),
+                exit = fadeOut() + shrinkVertically(),
+            ) {
+                StopTimeline(stops = option.stops)
+            }
+
+            if (option.discounts.isNotEmpty()) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(tokens.spacing.spacing8),
+                    verticalArrangement = Arrangement.spacedBy(tokens.spacing.spacing8),
+                ) {
+                    option.discounts.forEach { discount ->
+                        DiscountBadge(label = discount.label)
+                    }
+                }
+            }
+
+            option.seatAvailability?.let { seatAvailability ->
+                SeatAvailabilityBlock(seatAvailability)
+            }
+
+            HorizontalDivider(color = tokens.colors.dividerColor)
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    text = "停靠 ${option.stops.size} 站",
-                    color = tokens.colors.textPrimary,
-                    style = tokens.typography.bodyStrong,
+                SourceLink(
                     modifier = Modifier.weight(1f),
+                    label = option.source.timetable.cardSourceLabel(),
                 )
-                if (option.bookingStatus == BookingStatus.NotYetOpen) {
+                FooterAction(
+                    label = "前往訂票",
+                    onClick = { uriHandler.openUri(option.officialBookingUrl) },
+                )
+            }
+
+            if (!expanded) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "停靠 ${option.stops.size} 站",
+                        color = tokens.colors.textPrimary,
+                        style = tokens.typography.bodyStrong,
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (option.bookingStatus == BookingStatus.NotYetOpen) {
+                        FooterAction(
+                            label = "通知",
+                            onClick = ::openNotificationSheet,
+                            leading = {
+                                Icon(
+                                    imageVector = Icons.Outlined.NotificationsNone,
+                                    contentDescription = null,
+                                    tint = tokens.colors.primaryBlue,
+                                    modifier = Modifier.size(tokens.spacing.spacing16),
+                                )
+                            },
+                        )
+                        Spacer(Modifier.width(tokens.spacing.spacing12))
+                    }
+                    Text(
+                        text = option.durationLabel(),
+                        color = tokens.colors.textTertiary,
+                        style = tokens.typography.captionStrong,
+                    )
+                    Spacer(Modifier.width(tokens.spacing.spacing12))
+                    FooterAction(
+                        label = "查看",
+                        onClick = { expanded = true },
+                        trailing = {
+                            Icon(
+                                imageVector = Icons.Outlined.ChevronRight,
+                                contentDescription = null,
+                                tint = tokens.colors.primaryBlue,
+                                modifier = Modifier.size(tokens.sizes.disclosureIcon),
+                            )
+                        },
+                    )
+                }
+            } else if (option.bookingStatus == BookingStatus.NotYetOpen) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Spacer(Modifier.weight(1f))
                     FooterAction(
                         label = "通知",
-                        onClick = { showNotificationSheet = true },
+                        onClick = ::openNotificationSheet,
                         leading = {
                             Icon(
                                 imageVector = Icons.Outlined.NotificationsNone,
@@ -204,45 +337,7 @@ fun TrainOptionCard(
                             )
                         },
                     )
-                    Spacer(Modifier.width(tokens.spacing.spacing12))
                 }
-                Text(
-                    text = option.durationLabel(),
-                    color = tokens.colors.textTertiary,
-                    style = tokens.typography.captionStrong,
-                )
-                Spacer(Modifier.width(tokens.spacing.spacing12))
-                FooterAction(
-                    label = "查看",
-                    onClick = { expanded = true },
-                    trailing = {
-                        Icon(
-                            imageVector = Icons.Outlined.ChevronRight,
-                            contentDescription = null,
-                            tint = tokens.colors.primaryBlue,
-                            modifier = Modifier.size(tokens.sizes.disclosureIcon),
-                        )
-                    },
-                )
-            }
-        } else if (option.bookingStatus == BookingStatus.NotYetOpen) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Spacer(Modifier.weight(1f))
-                FooterAction(
-                    label = "通知",
-                    onClick = { showNotificationSheet = true },
-                    leading = {
-                        Icon(
-                            imageVector = Icons.Outlined.NotificationsNone,
-                            contentDescription = null,
-                            tint = tokens.colors.primaryBlue,
-                            modifier = Modifier.size(tokens.spacing.spacing16),
-                        )
-                    },
-                )
             }
         }
     }
@@ -255,6 +350,26 @@ fun TrainOptionCard(
                 showNotificationSheet = false
                 onScheduleNotification(option, reminderAt)
             },
+        )
+    }
+}
+
+@Composable
+private fun ScheduledNotificationBadge() {
+    val tokens = ThsrDesignTokens
+    Surface(
+        color = tokens.colors.successGreen.copy(alpha = 0.12f),
+        shape = RoundedCornerShape(tokens.radii.chipRadius),
+        tonalElevation = 0.dp,
+    ) {
+        Text(
+            text = "已加入通知",
+            color = tokens.colors.successGreen,
+            style = tokens.typography.captionStrong,
+            modifier = Modifier.padding(
+                horizontal = tokens.spacing.spacing8,
+                vertical = tokens.spacing.spacing4,
+            ),
         )
     }
 }
@@ -326,6 +441,11 @@ private fun BookingStatusBadge(
         BookingStatus.Closed -> Icons.Outlined.ErrorOutline
     }
     val interactionSource = remember { MutableInteractionSource() }
+    val rotation by animateFloatAsState(
+        targetValue = if (expanded) 90f else 0f,
+        animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = 0.80f),
+        label = "booking-status-chevron",
+    )
     Row(
         modifier = Modifier.clickable(
             interactionSource = interactionSource,
@@ -357,7 +477,7 @@ private fun BookingStatusBadge(
             tint = tokens.colors.primaryBlue,
             modifier = Modifier
                 .size(tokens.sizes.disclosureIcon)
-                .graphicsLayer { rotationZ = if (expanded) 90f else 0f },
+                .graphicsLayer { rotationZ = rotation },
         )
     }
 }
@@ -445,34 +565,22 @@ private fun SeatStatusText(
 @Composable
 private fun DiscountBadge(
     label: String,
-    color: Color,
 ) {
     val tokens = ThsrDesignTokens
     Surface(
         color = tokens.colors.elevatedSurfaceColor,
         shape = RoundedCornerShape(tokens.radii.chipRadius),
-        border = androidx.compose.foundation.BorderStroke(1.dp, tokens.colors.outlineColor),
+        tonalElevation = 0.dp,
     ) {
-        Row(
+        Text(
+            text = label,
+            color = tokens.colors.textPrimary,
+            style = tokens.typography.captionStrong,
             modifier = Modifier.padding(
                 horizontal = tokens.spacing.spacing8,
                 vertical = tokens.spacing.spacing4,
             ),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(tokens.spacing.spacing8),
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.LocalOffer,
-                contentDescription = null,
-                tint = color,
-                modifier = Modifier.size(14.dp),
-            )
-            Text(
-                text = label,
-                color = color,
-                style = tokens.typography.captionStrong,
-            )
-        }
+        )
     }
 }
 
