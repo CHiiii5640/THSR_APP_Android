@@ -14,8 +14,8 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -44,6 +44,7 @@ import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -66,10 +67,17 @@ import com.chiiii5640.thsrapp.features.bookingNotifications.BookingNotificationD
 import com.chiiii5640.thsrapp.features.bookingNotifications.BookingNotificationSheet
 import com.chiiii5640.thsrapp.features.bookingNotifications.BookingNotificationScheduler
 import com.chiiii5640.thsrapp.features.bookingNotifications.ScheduledBookingNotification
+import com.chiiii5640.thsrapp.ui.theme.ThsrColorTokens
 import com.chiiii5640.thsrapp.ui.theme.ThsrDesignTokens
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
+
+private data class TrainNotificationVisualState(
+    val actionTint: Color,
+    val cardTint: Color,
+    val shouldShowBadge: Boolean,
+)
 
 @Composable
 fun TrainResultsGroup(
@@ -131,29 +139,26 @@ fun TrainOptionCard(
     var highlightNotification by remember(option.trainNo, option.travelDate, option.origin, option.destination) {
         mutableStateOf(false)
     }
+    var pendingNotificationSheetBySwipe by remember(option.trainNo, option.travelDate, option.origin, option.destination) {
+        mutableStateOf(false)
+    }
     val isNotificationScheduled = scheduledNotification != null
-    val rowColor by animateColorAsState(
-        targetValue = when {
-            highlightNotification -> tokens.colors.warningOrange.copy(alpha = 0.16f)
-            isNotificationScheduled -> tokens.colors.warningOrange.copy(alpha = 0.12f)
-            expanded -> tokens.colors.primaryBlue.copy(alpha = 0.08f)
-            else -> tokens.colors.cardColor
-        },
-        animationSpec = tween(durationMillis = 180, easing = LinearEasing),
-        label = "train-row-background",
-    )
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
             if (value == SwipeToDismissBoxValue.EndToStart && option.bookingStatus == BookingStatus.NotYetOpen) {
                 highlightNotification = true
-                coroutineScope.launch {
-                    delay(180)
-                    showNotificationSheet = true
-                    highlightNotification = false
-                }
+                pendingNotificationSheetBySwipe = true
             }
             false
         },
+    )
+    val notificationState = remember(isNotificationScheduled, highlightNotification, expanded) {
+        trainNotificationVisualState(tokens.colors, isNotificationScheduled, highlightNotification, expanded)
+    }
+    val rowColor by animateColorAsState(
+        targetValue = notificationState.cardTint,
+        animationSpec = tween(durationMillis = 180, easing = LinearEasing),
+        label = "train-row-background",
     )
     fun openNotificationSheet() {
         highlightNotification = true
@@ -164,165 +169,185 @@ fun TrainOptionCard(
         }
     }
 
-    SwipeToDismissBox(
-        state = dismissState,
-        enableDismissFromStartToEnd = false,
-        enableDismissFromEndToStart = option.bookingStatus == BookingStatus.NotYetOpen,
-        backgroundContent = {
-            Box(
-                modifier = Modifier
-                    .padding(tokens.spacing.spacing16)
-                    .fillMaxWidth()
-                    .background(tokens.colors.warningOrange.copy(alpha = 0.16f), RoundedCornerShape(12.dp))
-                    .padding(horizontal = tokens.spacing.spacing16),
-                contentAlignment = Alignment.CenterEnd,
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(tokens.spacing.spacing8),
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.NotificationsNone,
-                        contentDescription = null,
-                        tint = tokens.colors.warningOrange,
-                        modifier = Modifier.size(tokens.spacing.spacing16),
-                    )
-                    Text(
-                        text = "通知",
-                        color = tokens.colors.warningOrange,
-                        style = tokens.typography.action,
-                    )
-                }
-            }
-        },
+    LaunchedEffect(pendingNotificationSheetBySwipe) {
+        if (pendingNotificationSheetBySwipe) {
+            delay(180)
+            dismissState.reset()
+            showNotificationSheet = true
+            highlightNotification = false
+            pendingNotificationSheetBySwipe = false
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .padding(horizontal = tokens.spacing.spacing16, vertical = 6.dp)
+            .clip(RoundedCornerShape(tokens.radii.cornerRadiusLarge)),
     ) {
-        Column(
-            modifier = Modifier
-                .padding(horizontal = tokens.spacing.spacing16, vertical = 6.dp)
-                .clip(RoundedCornerShape(tokens.radii.cornerRadiusLarge))
-                .background(rowColor)
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(tokens.spacing.spacing8),
+        SwipeToDismissBox(
+            state = dismissState,
+            enableDismissFromStartToEnd = false,
+            enableDismissFromEndToStart = option.bookingStatus == BookingStatus.NotYetOpen,
+            backgroundContent = {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(tokens.colors.warningOrange.copy(alpha = 0.22f))
+                        .padding(horizontal = tokens.spacing.spacing16),
+                    contentAlignment = Alignment.CenterEnd,
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(tokens.spacing.spacing8),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.NotificationsNone,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(tokens.spacing.spacing16),
+                        )
+                        Text(
+                            text = "通知",
+                            color = Color.White,
+                            style = tokens.typography.action,
+                        )
+                    }
+                }
+            },
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.Top,
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(rowColor)
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalArrangement = Arrangement.spacedBy(tokens.spacing.spacing8),
             ) {
-                Text(
-                    text = option.trainNo.padStart(4, '0'),
-                    color = tokens.colors.textPrimary,
-                    style = tokens.typography.cardTrainNo,
-                )
-                Spacer(Modifier.weight(1f))
-                Column(
-                    horizontalAlignment = Alignment.End,
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    BookingStatusBadge(status = option.bookingStatus, expanded = expanded) {
-                        expanded = !expanded
-                    }
-                    if (isNotificationScheduled) {
-                        ScheduledNotificationBadge()
-                    }
-                }
-            }
-
-            TimeRouteRow(option = option)
-
-            AnimatedVisibility(
-                visible = expanded,
-                enter = fadeIn(animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = 0.80f)) +
-                    expandVertically(animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = 0.80f)),
-                exit = fadeOut() + shrinkVertically(),
-            ) {
-                StopTimeline(stops = option.stops)
-            }
-
-            if (option.discounts.isNotEmpty()) {
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(tokens.spacing.spacing8),
-                    verticalArrangement = Arrangement.spacedBy(tokens.spacing.spacing8),
-                ) {
-                    option.discounts.forEach { discount ->
-                        DiscountBadge(label = discount.label)
-                    }
-                }
-            }
-
-            option.seatAvailability?.let { seatAvailability ->
-                SeatAvailabilityBlock(seatAvailability)
-            }
-
-            if (!expanded) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
+                    verticalAlignment = Alignment.Top,
                 ) {
                     Text(
-                        text = "停靠 ${option.stops.size} 站",
+                        text = option.trainNo.padStart(4, '0'),
                         color = tokens.colors.textPrimary,
-                        style = tokens.typography.bodyStrong,
-                        modifier = Modifier.weight(1f),
+                        style = tokens.typography.cardTrainNo,
                     )
-                    if (option.bookingStatus == BookingStatus.NotYetOpen) {
-                        FooterAction(
-                            label = "通知",
-                            onClick = ::openNotificationSheet,
-                            leading = {
-                                Icon(
-                                    imageVector = Icons.Outlined.NotificationsNone,
-                                    contentDescription = null,
-                                    tint = tokens.colors.primaryBlue,
-                                    modifier = Modifier.size(tokens.spacing.spacing16),
-                                )
-                            },
-                        )
-                        Spacer(Modifier.width(tokens.spacing.spacing12))
+                    Spacer(Modifier.weight(1f))
+                    Column(
+                        horizontalAlignment = Alignment.End,
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        BookingStatusBadge(
+                            status = option.bookingStatus,
+                            expanded = expanded,
+                            actionTint = notificationState.actionTint,
+                        ) {
+                            expanded = !expanded
+                        }
+                        if (notificationState.shouldShowBadge) {
+                            ScheduledNotificationBadge()
+                        }
                     }
-                    Text(
-                        text = option.durationLabel(),
-                        color = tokens.colors.textTertiary,
-                        style = tokens.typography.captionStrong,
-                    )
-                    Spacer(Modifier.width(tokens.spacing.spacing12))
-                    FooterAction(
-                        label = "查看",
-                        onClick = { expanded = true },
-                        trailing = {
-                            Icon(
-                                imageVector = Icons.Outlined.ChevronRight,
-                                contentDescription = null,
-                                tint = tokens.colors.primaryBlue,
-                                modifier = Modifier.size(tokens.sizes.disclosureIcon),
-                            )
-                        },
-                    )
                 }
-            } else {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
+
+                TimeRouteRow(option = option)
+
+                AnimatedVisibility(
+                    visible = expanded,
+                    enter = fadeIn(animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = 0.80f)) +
+                        expandVertically(animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = 0.80f)),
+                    exit = fadeOut() + shrinkVertically(),
                 ) {
-                    Text(
-                        text = option.source.timetable.cardSourceLabel(),
-                        color = tokens.colors.textTertiary,
-                        style = tokens.typography.caption,
-                        modifier = Modifier.weight(1f),
-                    )
-                    if (option.bookingStatus == BookingStatus.NotYetOpen) {
+                    StopTimeline(stops = option.stops)
+                }
+
+                if (option.discounts.isNotEmpty()) {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(tokens.spacing.spacing8),
+                        verticalArrangement = Arrangement.spacedBy(tokens.spacing.spacing8),
+                    ) {
+                        option.discounts.forEach { discount ->
+                            DiscountBadge(label = discount.label)
+                        }
+                    }
+                }
+
+                option.seatAvailability?.let { seatAvailability ->
+                    SeatAvailabilityBlock(seatAvailability)
+                }
+
+                if (!expanded) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = "停靠 ${option.stops.size} 站",
+                            color = tokens.colors.textPrimary,
+                            style = tokens.typography.bodyStrong,
+                            modifier = Modifier.weight(1f),
+                        )
+                        if (option.bookingStatus == BookingStatus.NotYetOpen) {
+                            FooterAction(
+                                label = "通知",
+                                tint = notificationState.actionTint,
+                                onClick = ::openNotificationSheet,
+                                leading = {
+                                    Icon(
+                                        imageVector = Icons.Outlined.NotificationsNone,
+                                        contentDescription = null,
+                                        tint = notificationState.actionTint,
+                                        modifier = Modifier.size(tokens.spacing.spacing16),
+                                    )
+                                },
+                            )
+                            Spacer(Modifier.width(tokens.spacing.spacing12))
+                        }
+                        Text(
+                            text = option.durationLabel(),
+                            color = tokens.colors.textTertiary,
+                            style = tokens.typography.captionStrong,
+                        )
                         Spacer(Modifier.width(tokens.spacing.spacing12))
                         FooterAction(
-                            label = "通知",
-                            onClick = ::openNotificationSheet,
-                            leading = {
+                            label = "查看",
+                            onClick = { expanded = true },
+                            trailing = {
                                 Icon(
-                                    imageVector = Icons.Outlined.NotificationsNone,
+                                    imageVector = Icons.Outlined.ChevronRight,
                                     contentDescription = null,
                                     tint = tokens.colors.primaryBlue,
-                                    modifier = Modifier.size(tokens.spacing.spacing16),
+                                    modifier = Modifier.size(tokens.sizes.disclosureIcon),
                                 )
                             },
                         )
+                    }
+                } else {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = option.source.timetable.cardSourceLabel(),
+                            color = tokens.colors.textTertiary,
+                            style = tokens.typography.caption,
+                            modifier = Modifier.weight(1f),
+                        )
+                        if (option.bookingStatus == BookingStatus.NotYetOpen) {
+                            Spacer(Modifier.width(tokens.spacing.spacing12))
+                            FooterAction(
+                                label = "通知",
+                                tint = notificationState.actionTint,
+                                onClick = ::openNotificationSheet,
+                                leading = {
+                                    Icon(
+                                        imageVector = Icons.Outlined.NotificationsNone,
+                                        contentDescription = null,
+                                        tint = notificationState.actionTint,
+                                        modifier = Modifier.size(tokens.spacing.spacing16),
+                                    )
+                                },
+                            )
+                        }
                     }
                 }
             }
@@ -331,6 +356,7 @@ fun TrainOptionCard(
 
     if (showNotificationSheet) {
         BookingNotificationSheet(
+            option = option,
             initialReminderAt = scheduledNotification?.reminderAt?.let(LocalDateTime::parse)
                 ?: BookingNotificationDefaults.reminderAt(option),
             onDismiss = { showNotificationSheet = false },
@@ -419,6 +445,7 @@ private fun TimeStationColumn(
 private fun BookingStatusBadge(
     status: BookingStatus,
     expanded: Boolean,
+    actionTint: Color,
     onToggleExpand: () -> Unit,
 ) {
     val tokens = ThsrDesignTokens
@@ -462,7 +489,7 @@ private fun BookingStatusBadge(
         Icon(
             imageVector = Icons.Outlined.ChevronRight,
             contentDescription = null,
-            tint = tokens.colors.primaryBlue,
+            tint = actionTint,
             modifier = Modifier
                 .size(tokens.sizes.disclosureIcon)
                 .graphicsLayer { rotationZ = rotation },
@@ -575,6 +602,7 @@ private fun DiscountBadge(
 @Composable
 private fun FooterAction(
     label: String,
+    tint: Color = ThsrDesignTokens.colors.primaryBlue,
     onClick: () -> Unit,
     leading: (@Composable () -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
@@ -593,12 +621,36 @@ private fun FooterAction(
         leading?.invoke()
         Text(
             text = label,
-            color = tokens.colors.primaryBlue,
+            color = tint,
             style = tokens.typography.action,
             fontWeight = FontWeight.SemiBold,
         )
         trailing?.invoke()
     }
+}
+
+private fun trainNotificationVisualState(
+    colors: ThsrColorTokens,
+    isNotificationScheduled: Boolean,
+    highlightNotification: Boolean,
+    expanded: Boolean,
+): TrainNotificationVisualState {
+    val actionTint = if (isNotificationScheduled || highlightNotification) {
+        colors.warningOrange
+    } else {
+        colors.primaryBlue
+    }
+    val cardTint = when {
+        highlightNotification -> colors.warningOrange.copy(alpha = 0.18f)
+        isNotificationScheduled -> colors.warningOrange.copy(alpha = 0.12f)
+        expanded -> colors.primaryBlue.copy(alpha = 0.08f)
+        else -> colors.cardColor
+    }
+    return TrainNotificationVisualState(
+        actionTint = actionTint,
+        cardTint = cardTint,
+        shouldShowBadge = isNotificationScheduled,
+    )
 }
 
 private fun BookingStatus.label(): String = when (this) {
