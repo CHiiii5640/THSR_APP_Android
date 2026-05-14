@@ -6,6 +6,13 @@ import org.junit.Test
 
 class TdxSeatAvailabilityProviderTest {
     @Test
+    fun mapsSingleCodesToSeatStatus() {
+        assertEquals(SeatStatus.Available, seatStatusFromCode("O"))
+        assertEquals(SeatStatus.Limited, seatStatusFromCode("L"))
+        assertEquals(SeatStatus.SoldOut, seatStatusFromCode("X"))
+    }
+
+    @Test
     fun mapsTdxSeatStatusCodesToSeatStatus() {
         assertEquals(SeatStatus.Available, seatStatusFromCodes("O"))
         assertEquals(SeatStatus.Limited, seatStatusFromCodes("L"))

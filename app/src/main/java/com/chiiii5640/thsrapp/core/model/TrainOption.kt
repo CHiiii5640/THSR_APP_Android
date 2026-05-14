@@ -14,7 +14,7 @@ data class TrainOption(
     val arrivalTime: LocalTime,
     val stops: List<TimelineStop>,
     val bookingStatus: BookingStatus,
-    val seatStatus: SeatStatus,
+    val seatAvailability: SeatAvailabilityDetail?,
     val discounts: List<DiscountOffer>,
     val source: TrainDataSource,
 ) {
@@ -23,6 +23,9 @@ data class TrainOption(
             LocalDateTime.of(travelDate, departureTime),
             LocalDateTime.of(travelDate, arrivalTime),
         )
+
+    val seatStatus: SeatStatus
+        get() = seatAvailability?.summary ?: SeatStatus.Unknown
 
     val officialBookingUrl: String
         get() = "https://irs.thsrc.com.tw/IMINT/?locale=tw"
@@ -45,6 +48,24 @@ enum class SeatStatus {
     Available,
     Limited,
     SoldOut,
+}
+
+data class SeatAvailabilityDetail(
+    val standardSeatStatus: SeatStatus,
+    val businessSeatStatus: SeatStatus,
+    val boardStandardSeatStatus: SeatStatus = SeatStatus.Unknown,
+    val boardBusinessSeatStatus: SeatStatus = SeatStatus.Unknown,
+    val hasBoardSeatStatus: Boolean = false,
+) {
+    val summary: SeatStatus
+        get() = listOfNotNull(
+            standardSeatStatus,
+            businessSeatStatus,
+            boardStandardSeatStatus.takeIf { hasBoardSeatStatus },
+            boardBusinessSeatStatus.takeIf { hasBoardSeatStatus },
+        ).fold(SeatStatus.Unknown) { best, current ->
+            if (current.rank > best.rank) current else best
+        }
 }
 
 data class DiscountOffer(
@@ -76,3 +97,11 @@ enum class SourceState {
     Fallback,
     Unavailable,
 }
+
+private val SeatStatus.rank: Int
+    get() = when (this) {
+        SeatStatus.Unknown -> 0
+        SeatStatus.SoldOut -> 1
+        SeatStatus.Limited -> 2
+        SeatStatus.Available -> 3
+    }

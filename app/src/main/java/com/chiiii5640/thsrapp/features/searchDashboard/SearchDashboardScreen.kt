@@ -70,7 +70,7 @@ import com.chiiii5640.thsrapp.core.model.SourceStatus
 import com.chiiii5640.thsrapp.core.model.Station
 import com.chiiii5640.thsrapp.core.time.ThsrFormatters
 import com.chiiii5640.thsrapp.features.bookingNotifications.ScheduledNotificationsScreen
-import com.chiiii5640.thsrapp.features.trainResults.TrainOptionCard
+import com.chiiii5640.thsrapp.features.trainResults.TrainResultsGroup
 import com.chiiii5640.thsrapp.ui.theme.ThsrDesignTokens
 import java.time.Instant
 import java.time.LocalDate
@@ -200,16 +200,8 @@ fun SearchDashboardScreen(viewModel: SearchDashboardViewModel) {
                             )
                         }
                         item {
-                            Text(
-                                text = "${filtered.size} 班符合條件",
-                                color = tokens.colors.textSecondary,
-                                style = tokens.typography.sectionLabel,
-                                modifier = Modifier.padding(horizontal = tokens.spacing.spacing4),
-                            )
-                        }
-                        items(filtered, key = { "${it.trainNo}-${it.departureTime}" }) { option ->
-                            TrainOptionCard(
-                                option = option,
+                            TrainResultsGroup(
+                                options = filtered,
                                 onScheduleNotification = viewModel::scheduleNotification,
                             )
                         }

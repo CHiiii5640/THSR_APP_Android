@@ -1,7 +1,6 @@
 package com.chiiii5640.thsrapp.features.bookingNotifications
 
 import com.chiiii5640.thsrapp.core.model.BookingStatus
-import com.chiiii5640.thsrapp.core.model.SeatStatus
 import com.chiiii5640.thsrapp.core.model.SourceState
 import com.chiiii5640.thsrapp.core.model.SourceStatus
 import com.chiiii5640.thsrapp.core.model.Station
@@ -26,7 +25,7 @@ class BookingNotificationSchedulerTest {
             arrivalTime = LocalTime.of(10, 0),
             stops = emptyList(),
             bookingStatus = BookingStatus.NotYetOpen,
-            seatStatus = SeatStatus.Unknown,
+            seatAvailability = null,
             discounts = emptyList(),
             source = TrainDataSource(
                 SourceStatus("timetable", SourceState.Live),
@@ -75,7 +74,7 @@ class BookingNotificationSchedulerTest {
             arrivalTime = LocalTime.of(10, 0),
             stops = emptyList(),
             bookingStatus = BookingStatus.NotYetOpen,
-            seatStatus = SeatStatus.Unknown,
+            seatAvailability = null,
             discounts = emptyList(),
             source = TrainDataSource(
                 SourceStatus("timetable", SourceState.Live),

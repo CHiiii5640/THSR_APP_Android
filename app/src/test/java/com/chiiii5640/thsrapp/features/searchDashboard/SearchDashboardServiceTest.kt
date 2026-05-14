@@ -2,6 +2,7 @@ package com.chiiii5640.thsrapp.features.searchDashboard
 
 import com.chiiii5640.thsrapp.core.model.DiscountOffer
 import com.chiiii5640.thsrapp.core.model.DiscountType
+import com.chiiii5640.thsrapp.core.model.SeatAvailabilityDetail
 import com.chiiii5640.thsrapp.core.model.SeatStatus
 import com.chiiii5640.thsrapp.core.model.SourceState
 import com.chiiii5640.thsrapp.core.model.SourceStatus
@@ -151,7 +152,10 @@ class SearchDashboardServiceTest {
             arrivalTime = LocalTime.of(9, 0).plusMinutes(minutes),
             stops = emptyList(),
             bookingStatus = com.chiiii5640.thsrapp.core.model.BookingStatus.Available,
-            seatStatus = SeatStatus.Available,
+            seatAvailability = SeatAvailabilityDetail(
+                standardSeatStatus = SeatStatus.Available,
+                businessSeatStatus = SeatStatus.Unknown,
+            ),
             discounts = if (discounted) listOf(DiscountOffer(DiscountType.EarlyBird, "早鳥", 35)) else emptyList(),
             source = com.chiiii5640.thsrapp.core.model.TrainDataSource(
                 SourceStatus("timetable", SourceState.Live),
@@ -180,7 +184,15 @@ private class FakeSeatProvider : SeatAvailabilityProvider {
     ): SeatAvailabilityResult {
         called = true
         lastSkip = skip
-        return SeatAvailabilityResult(trainNos.associateWith { SeatStatus.Available }, SourceStatus("seat", SourceState.Live))
+        return SeatAvailabilityResult(
+            trainNos.associateWith {
+                SeatAvailabilityDetail(
+                    standardSeatStatus = SeatStatus.Available,
+                    businessSeatStatus = SeatStatus.Unknown,
+                )
+            },
+            SourceStatus("seat", SourceState.Live),
+        )
     }
 }
 

@@ -2,7 +2,6 @@ package com.chiiii5640.thsrapp.features.searchDashboard
 
 import com.chiiii5640.thsrapp.core.model.BookingStatus
 import com.chiiii5640.thsrapp.core.logging.ThsrLog
-import com.chiiii5640.thsrapp.core.model.SeatStatus
 import com.chiiii5640.thsrapp.core.model.SourceState
 import com.chiiii5640.thsrapp.core.model.SourceStatus
 import com.chiiii5640.thsrapp.core.model.TrainDataSource
@@ -81,7 +80,7 @@ class SearchDashboardService(
                 arrivalTime = train.arrivalTime,
                 stops = train.stops,
                 bookingStatus = bookingStatus(query),
-                seatStatus = seats.seatsByTrainNo[train.trainNo] ?: SeatStatus.Unknown,
+                seatAvailability = seats.seatsByTrainNo[train.trainNo],
                 discounts = discounts.offersByTrainNo[train.trainNo].orEmpty(),
                 source = TrainDataSource(
                     timetable = timetable.status,

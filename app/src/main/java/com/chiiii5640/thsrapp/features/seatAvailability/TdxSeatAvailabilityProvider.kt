@@ -1,6 +1,7 @@
 package com.chiiii5640.thsrapp.features.seatAvailability
 
 import com.chiiii5640.thsrapp.core.model.SeatStatus
+import com.chiiii5640.thsrapp.core.model.SeatAvailabilityDetail
 import com.chiiii5640.thsrapp.core.model.SourceState
 import com.chiiii5640.thsrapp.core.model.SourceStatus
 import com.chiiii5640.thsrapp.core.model.TdxSeatStatusItem
@@ -45,11 +46,12 @@ class TdxSeatAvailabilityProvider(
 
         val fetchedResult = runCatching {
             val od = api.odSeatStatus(query.travelDate, query.origin, query.destination, query.forceRefresh)
-            if (query.travelDate == LocalDate.now(clock)) {
-                od + api.todaySeatBoard(query.origin, query.forceRefresh)
+            val board = if (query.travelDate == LocalDate.now(clock)) {
+                api.todaySeatBoard(query.origin, query.forceRefresh)
             } else {
-                od
+                emptyList()
             }
+            od to board
         }.onFailure { error ->
             if (error.message?.contains("429") == true) cooldownUntil = now.plusSeconds(30)
         }
@@ -62,32 +64,67 @@ class TdxSeatAvailabilityProvider(
             )
         }
 
-        val mapped = fetched
+        val (odStatuses, boardStatuses) = fetched
+        val odByTrainNo = odStatuses
             .filter { it.trainNo in trainNos }
-            .associate { it.trainNo to it.toSeatStatus() }
+            .associateBy { it.trainNo }
+        val boardByTrainNo = boardStatuses
+            .filter { it.trainNo in trainNos && it.stationId == query.destination.id }
+            .associateBy { it.trainNo }
+        val mapped = (odByTrainNo.keys + boardByTrainNo.keys)
+            .associateWith { trainNo ->
+                seatAvailabilityDetail(
+                    od = odByTrainNo[trainNo],
+                    board = boardByTrainNo[trainNo],
+                )
+            }
+            .filterValues { it != null }
+            .mapValues { (_, value) -> checkNotNull(value) }
         cache[key] = CacheEntry(now, mapped)
         return SeatAvailabilityResult(mapped, SourceStatus("TDX seat availability live", SourceState.Live))
     }
 
     private data class CacheEntry(
         val createdAt: Instant,
-        val values: Map<String, SeatStatus>,
+        val values: Map<String, SeatAvailabilityDetail>,
     )
 }
 
-private fun TdxSeatStatusItem.toSeatStatus(): SeatStatus {
-    return seatStatusFromCodes(standardSeatStatus, businessSeatStatus)
+private fun seatAvailabilityDetail(
+    od: TdxSeatStatusItem?,
+    board: TdxSeatStatusItem?,
+): SeatAvailabilityDetail? {
+    if (od == null && board == null) return null
+    return SeatAvailabilityDetail(
+        standardSeatStatus = seatStatusFromCode(od?.standardSeatStatus),
+        businessSeatStatus = seatStatusFromCode(od?.businessSeatStatus),
+        boardStandardSeatStatus = seatStatusFromCode(board?.standardSeatStatus),
+        boardBusinessSeatStatus = seatStatusFromCode(board?.businessSeatStatus),
+        hasBoardSeatStatus = board != null,
+    )
+}
+
+internal fun seatStatusFromCode(rawStatus: String?): SeatStatus {
+    val normalized = rawStatus?.trim()?.uppercase().orEmpty()
+    if (normalized.isEmpty()) return SeatStatus.Unknown
+
+    return when {
+        normalized == "O" || normalized.contains("AVAILABLE") || normalized.contains("充足") -> SeatStatus.Available
+        normalized == "L" || normalized.contains("LIMITED") || normalized.contains("有限") -> SeatStatus.Limited
+        normalized == "X" || normalized.contains("SOLD") || normalized.contains("FULL") || normalized.contains("無") -> SeatStatus.SoldOut
+        else -> SeatStatus.Unknown
+    }
 }
 
 internal fun seatStatusFromCodes(vararg rawStatuses: String?): SeatStatus {
-    val normalized = rawStatuses
-        .mapNotNull { it?.trim()?.uppercase() }
-        .filter { it.isNotEmpty() }
-
-    return when {
-        normalized.any { it == "O" || it.contains("AVAILABLE") || it.contains("充足") } -> SeatStatus.Available
-        normalized.any { it == "L" || it.contains("LIMITED") || it.contains("有限") } -> SeatStatus.Limited
-        normalized.any { it == "X" || it.contains("SOLD") || it.contains("FULL") || it.contains("無") } -> SeatStatus.SoldOut
-        else -> SeatStatus.Unknown
-    }
+    return rawStatuses
+        .map(::seatStatusFromCode)
+        .maxByOrNull { status ->
+            when (status) {
+                SeatStatus.Unknown -> 0
+                SeatStatus.SoldOut -> 1
+                SeatStatus.Limited -> 2
+                SeatStatus.Available -> 3
+            }
+        } ?: SeatStatus.Unknown
 }
