@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -39,12 +40,14 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimeInput
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
@@ -89,6 +92,7 @@ fun SearchDashboardScreen(viewModel: SearchDashboardViewModel) {
     val filtered = state.selectedFilter.apply(result?.options.orEmpty())
     val tokens = ThsrDesignTokens
     val listState = rememberLazyListState()
+    val scheduledNotificationsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     Scaffold(
         containerColor = tokens.colors.backgroundColor,
@@ -97,7 +101,7 @@ fun SearchDashboardScreen(viewModel: SearchDashboardViewModel) {
                 modifier = Modifier.height(tokens.sizes.navigationExpandedHeight),
                 title = {
                     Text(
-                        text = if (state.showingScheduledNotifications) "通知列表" else "高鐵開票看板",
+                        text = "高鐵開票看板",
                         style = tokens.typography.largeTitle,
                         color = tokens.colors.textPrimary,
                         modifier = Modifier.fillMaxWidth(),
@@ -130,7 +134,7 @@ fun SearchDashboardScreen(viewModel: SearchDashboardViewModel) {
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.NotificationsNone,
-                                contentDescription = if (state.showingScheduledNotifications) "回查詢" else "通知列表",
+                                contentDescription = "通知列表",
                                 tint = if (state.scheduledNotifications.isNotEmpty()) {
                                     tokens.colors.warningOrange
                                 } else {
@@ -173,14 +177,7 @@ fun SearchDashboardScreen(viewModel: SearchDashboardViewModel) {
                 bottom = tokens.spacing.spacing20,
             ),
         ) {
-            if (state.showingScheduledNotifications) {
-                item {
-                    ScheduledNotificationsSection(
-                        state = state,
-                        onCancel = viewModel::cancelNotification,
-                    )
-                }
-            } else {
+            if (!state.showingScheduledNotifications) {
                 item {
                     QueryFormSection(
                         state = state,
@@ -215,27 +212,69 @@ fun SearchDashboardScreen(viewModel: SearchDashboardViewModel) {
                 }
             }
         }
+
+        if (state.showingScheduledNotifications) {
+            ModalBottomSheet(
+                onDismissRequest = { viewModel.setShowingScheduledNotifications(false) },
+                sheetState = scheduledNotificationsSheetState,
+                shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+                containerColor = tokens.colors.backgroundColor.copy(alpha = 0.98f),
+                scrimColor = tokens.colors.backgroundColor.copy(alpha = 0.55f),
+                dragHandle = null,
+            ) {
+                ScheduledNotificationsSheetContent(
+                    state = state,
+                    onDismiss = { viewModel.setShowingScheduledNotifications(false) },
+                    onCancel = viewModel::cancelNotification,
+                )
+            }
+        }
     }
 }
 
 @Composable
-private fun ScheduledNotificationsSection(
+private fun ScheduledNotificationsSheetContent(
     state: SearchDashboardUiState,
+    onDismiss: () -> Unit,
     onCancel: (String) -> Unit,
 ) {
     val tokens = ThsrDesignTokens
-    Surface(
-        color = tokens.colors.surfaceColor,
-        shape = RoundedCornerShape(tokens.radii.cornerRadiusLarge),
-        tonalElevation = 0.dp,
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .fillMaxHeight(0.92f)
+            .padding(horizontal = 24.dp, vertical = 28.dp),
+        verticalArrangement = Arrangement.spacedBy(22.dp),
     ) {
-        Column(Modifier.padding(vertical = tokens.spacing.spacing8)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Spacer(Modifier.width(64.dp))
+            Text(
+                text = "已設定的通知",
+                color = tokens.colors.textPrimary,
+                style = tokens.typography.largeTitle,
+                modifier = Modifier.weight(1f),
+                textAlign = TextAlign.Center,
+            )
+            TextButton(onClick = onDismiss) {
+                Text("完成", color = tokens.colors.primaryBlue)
+            }
+        }
+
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = tokens.colors.surfaceColor,
+            shape = RoundedCornerShape(tokens.radii.cornerRadiusLarge),
+            tonalElevation = 0.dp,
+        ) {
             ScheduledNotificationsScreen(
                 notifications = state.scheduledNotifications,
                 onCancel = onCancel,
             )
         }
-    }
+    } 
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
