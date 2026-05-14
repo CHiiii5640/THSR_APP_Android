@@ -134,6 +134,14 @@ fun TrainOptionCard(
 
         TimeRouteRow(option = option)
 
+        AnimatedVisibility(
+            visible = expanded,
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically(),
+        ) {
+            StopTimeline(stops = option.stops)
+        }
+
         if (option.discounts.isNotEmpty()) {
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(tokens.spacing.spacing8),
@@ -172,17 +180,57 @@ fun TrainOptionCard(
             )
         }
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = "停靠 ${option.stops.size} 站",
-                color = tokens.colors.textPrimary,
-                style = tokens.typography.bodyStrong,
-                modifier = Modifier.weight(1f),
-            )
-            if (option.bookingStatus == BookingStatus.NotYetOpen) {
+        if (!expanded) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "停靠 ${option.stops.size} 站",
+                    color = tokens.colors.textPrimary,
+                    style = tokens.typography.bodyStrong,
+                    modifier = Modifier.weight(1f),
+                )
+                if (option.bookingStatus == BookingStatus.NotYetOpen) {
+                    FooterAction(
+                        label = "通知",
+                        onClick = { showNotificationSheet = true },
+                        leading = {
+                            Icon(
+                                imageVector = Icons.Outlined.NotificationsNone,
+                                contentDescription = null,
+                                tint = tokens.colors.primaryBlue,
+                                modifier = Modifier.size(tokens.spacing.spacing16),
+                            )
+                        },
+                    )
+                    Spacer(Modifier.width(tokens.spacing.spacing12))
+                }
+                Text(
+                    text = option.durationLabel(),
+                    color = tokens.colors.textTertiary,
+                    style = tokens.typography.captionStrong,
+                )
+                Spacer(Modifier.width(tokens.spacing.spacing12))
+                FooterAction(
+                    label = "查看",
+                    onClick = { expanded = true },
+                    trailing = {
+                        Icon(
+                            imageVector = Icons.Outlined.ChevronRight,
+                            contentDescription = null,
+                            tint = tokens.colors.primaryBlue,
+                            modifier = Modifier.size(tokens.sizes.disclosureIcon),
+                        )
+                    },
+                )
+            }
+        } else if (option.bookingStatus == BookingStatus.NotYetOpen) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Spacer(Modifier.weight(1f))
                 FooterAction(
                     label = "通知",
                     onClick = { showNotificationSheet = true },
@@ -195,36 +243,7 @@ fun TrainOptionCard(
                         )
                     },
                 )
-                Spacer(Modifier.width(tokens.spacing.spacing12))
             }
-            Text(
-                text = option.durationLabel(),
-                color = tokens.colors.textTertiary,
-                style = tokens.typography.captionStrong,
-            )
-            Spacer(Modifier.width(tokens.spacing.spacing12))
-            FooterAction(
-                label = if (expanded) "收起" else "查看",
-                onClick = { expanded = !expanded },
-                trailing = {
-                    Icon(
-                        imageVector = Icons.Outlined.ChevronRight,
-                        contentDescription = null,
-                        tint = tokens.colors.primaryBlue,
-                        modifier = Modifier
-                            .size(tokens.sizes.disclosureIcon)
-                            .graphicsLayer { rotationZ = if (expanded) 90f else 0f },
-                    )
-                },
-            )
-        }
-
-        AnimatedVisibility(
-            visible = expanded,
-            enter = fadeIn() + expandVertically(),
-            exit = fadeOut() + shrinkVertically(),
-        ) {
-            StopTimeline(stops = option.stops)
         }
     }
 
