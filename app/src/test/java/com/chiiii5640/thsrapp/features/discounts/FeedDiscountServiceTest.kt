@@ -205,6 +205,43 @@ class FeedDiscountServiceTest {
 
         assertEquals(listOf("0300"), result.trains.map { it.trainNo })
     }
+
+    @Test
+    fun discountsMatchWhenFeedUsesPaddedTrainNumberButTimetableDoesNot() = runTest {
+        val service = FeedDiscountService(
+            client = FakeHttpClient(feedBody = """
+                {
+                  "rules": [
+                    {
+                      "kind": "early_bird",
+                      "train_number": "0640",
+                      "direction": "南下",
+                      "departure_time": "14:11",
+                      "dates": ["2026-05-14"],
+                      "offer": { "kind": "percentage", "percent": 80, "label": "早鳥8折" },
+                      "priority": 10
+                    }
+                  ]
+                }
+            """.trimIndent()),
+            feedUrl = "https://example.com/discounts.json",
+        )
+
+        val result = service.discounts(
+            date = LocalDate.of(2026, 5, 14),
+            trains = listOf(
+                com.chiiii5640.thsrapp.features.timetable.TimetableTrain(
+                    trainNo = "640",
+                    departureTime = LocalTime.of(14, 11),
+                    arrivalTime = LocalTime.of(14, 45),
+                    stops = emptyList(),
+                ),
+            ),
+            forceRefresh = true,
+        )
+
+        assertEquals(listOf("早鳥8折"), result.offersByTrainNo["640"]?.map { it.label })
+    }
 }
 
 private class FakeHttpClient(
