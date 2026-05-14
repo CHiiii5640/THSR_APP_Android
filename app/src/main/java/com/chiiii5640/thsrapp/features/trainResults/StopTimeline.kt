@@ -40,6 +40,7 @@ import kotlinx.coroutines.delay
 private val timelineNodeWidth = 50.dp
 private val timelineLabelWidth = 48.dp
 private val timelineSegmentUnitWidth = 38.dp
+private val timelineMarkerSize = 10.dp
 
 @Composable
 fun StopTimeline(stops: List<TimelineStop>) {
@@ -119,7 +120,7 @@ private fun StopNode(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier
-                    .size(10.dp)
+                    .size(timelineMarkerSize)
                     .then(
                         if (isEndpoint) {
                             Modifier.background(tokens.colors.primaryBlue, CircleShape)
@@ -155,13 +156,19 @@ private fun TimelineSegment(
     to: TimelineStop,
 ) {
     val tokens = ThsrDesignTokens
-    Spacer(
+    Box(
         modifier = Modifier
             .width(timelineSegmentWidth(from, to))
-            .height(2.dp)
-            .background(tokens.colors.primaryBlue.copy(alpha = 0.72f))
-            .padding(top = 6.dp),
-    )
+            .height(timelineMarkerSize),
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        Spacer(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(2.dp)
+                .background(tokens.colors.primaryBlue.copy(alpha = 0.72f)),
+        )
+    }
 }
 
 private fun timelineSegmentWidth(
