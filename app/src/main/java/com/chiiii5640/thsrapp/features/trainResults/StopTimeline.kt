@@ -30,6 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.chiiii5640.thsrapp.core.model.TimelineStop
@@ -114,7 +115,7 @@ private fun StopNode(
                 scaleX = 0.92f + (0.08f * progress)
                 scaleY = 0.92f + (0.08f * progress)
             },
-        horizontalAlignment = Alignment.Start,
+        horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(tokens.spacing.spacing4),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -139,12 +140,16 @@ private fun StopNode(
                 color = tokens.colors.textPrimary,
                 style = tokens.typography.captionStrong,
                 fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
             )
             Text(
                 text = stop.station.localName,
                 color = if (isEndpoint) tokens.colors.textPrimary else tokens.colors.textSecondary,
                 style = tokens.typography.caption,
                 fontWeight = if (isEndpoint) FontWeight.SemiBold else FontWeight.Normal,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
             )
         }
     }
