@@ -73,7 +73,7 @@ private fun ScheduledNotificationRow(
     )
     val estimatedOpeningDate = notification.estimatedOpeningDate().format(DateTimeFormatter.ofPattern("yyyy/MM/dd"))
     val backgroundColor by animateColorAsState(
-        targetValue = if (dismissState.targetValue == SwipeToDismissBoxValue.EndToStart) {
+        targetValue = if (dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart) {
             tokens.colors.dangerRed.copy(alpha = 0.88f)
         } else {
             Color.Transparent
