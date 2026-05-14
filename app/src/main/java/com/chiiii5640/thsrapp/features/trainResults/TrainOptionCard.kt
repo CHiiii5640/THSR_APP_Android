@@ -410,7 +410,7 @@ private fun TimeRouteRow(option: TrainOption) {
     val tokens = ThsrDesignTokens
     Row(
         modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.Top,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         TimeStationColumn(
             time = ThsrFormatters.displayTimetableTime(option.departureTime),
@@ -422,7 +422,6 @@ private fun TimeRouteRow(option: TrainOption) {
             contentDescription = null,
             tint = tokens.colors.textTertiary,
             modifier = Modifier
-                .padding(top = 3.dp)
                 .size(tokens.spacing.spacing16),
         )
         Spacer(Modifier.width(tokens.spacing.spacing8))
