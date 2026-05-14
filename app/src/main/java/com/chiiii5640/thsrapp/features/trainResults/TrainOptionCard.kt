@@ -117,11 +117,24 @@ fun TrainOptionCard(
                             style = tokens.typography.cardTime,
                         )
                     }
-                    Text(
-                        text = "${option.origin.localName}  →  ${option.destination.localName}",
-                        color = tokens.colors.textSecondary,
-                        style = tokens.typography.cardRoute,
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.Top,
+                    ) {
+                        Text(
+                            text = option.origin.localName,
+                            color = tokens.colors.textSecondary,
+                            style = tokens.typography.cardRoute,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Spacer(Modifier.width(tokens.spacing.spacing16))
+                        Text(
+                            text = option.destination.localName,
+                            color = tokens.colors.textSecondary,
+                            style = tokens.typography.cardRoute,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
                 }
                 BookingStatusBadge(option.bookingStatus)
             }
@@ -143,9 +156,6 @@ fun TrainOptionCard(
                     )
                 }
             }
-
-            // Duration pill
-            DurationPill(option.durationLabel())
 
             HorizontalDivider(color = tokens.colors.dividerColor)
 
@@ -175,6 +185,12 @@ fun TrainOptionCard(
                     style = tokens.typography.bodyStrong,
                     modifier = Modifier.weight(1f),
                 )
+                Text(
+                    text = option.durationLabel(),
+                    color = tokens.colors.textTertiary,
+                    style = tokens.typography.captionStrong,
+                )
+                Spacer(Modifier.width(tokens.spacing.spacing8))
                 FooterAction(
                     label = if (expanded) "收起" else "查看",
                     onClick = { expanded = !expanded },
@@ -293,37 +309,6 @@ private fun SeatStatusPill(status: SeatStatus) {
             Text(
                 text = status.pillLabel(),
                 color = color,
-                style = tokens.typography.pill,
-            )
-        }
-    }
-}
-
-@Composable
-private fun DurationPill(label: String) {
-    val tokens = ThsrDesignTokens
-    Surface(
-        color = tokens.colors.elevatedSurfaceColor,
-        shape = RoundedCornerShape(tokens.radii.chipRadius),
-        border = androidx.compose.foundation.BorderStroke(1.dp, tokens.colors.outlineColor),
-    ) {
-        Row(
-            modifier = Modifier.padding(
-                horizontal = tokens.spacing.spacing12,
-                vertical = tokens.spacing.spacing4,
-            ),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(tokens.spacing.spacing8),
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.Schedule,
-                contentDescription = null,
-                tint = tokens.colors.textTertiary,
-                modifier = Modifier.size(tokens.spacing.spacing16),
-            )
-            Text(
-                text = label,
-                color = tokens.colors.textTertiary,
                 style = tokens.typography.pill,
             )
         }
