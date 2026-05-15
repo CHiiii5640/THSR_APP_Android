@@ -65,10 +65,25 @@ class SearchDashboardServiceTest {
     @Test
     fun filtersDiscountedAndFastestResults() {
         val slow = trainOption(trainNo = "1", minutes = 90, discounted = false)
-        val fastDiscounted = trainOption(trainNo = "2", minutes = 70, discounted = true)
+        val fastDiscounted = trainOption(trainNo = "2", minutes = 70, discounted = true, departure = LocalTime.of(9, 20))
+        val earlierFast = trainOption(trainNo = "3", minutes = 70, discounted = false)
 
         assertEquals(listOf(fastDiscounted), ResultFilter.Discounted.apply(listOf(slow, fastDiscounted)))
-        assertEquals(listOf(fastDiscounted), ResultFilter.Fastest.apply(listOf(slow, fastDiscounted)))
+        assertEquals(listOf(earlierFast, fastDiscounted), ResultFilter.Fastest.apply(listOf(slow, fastDiscounted, earlierFast)))
+        assertEquals(listOf(slow), ResultFilter.Fastest.apply(listOf(slow, fastDiscounted, earlierFast), fastestDuration = 90))
+        assertEquals(listOf(70L, 90L), ResultFilter.fastestDurationOptions(listOf(slow, fastDiscounted, earlierFast)))
+    }
+
+    @Test
+    fun durationAllowsArrivalAfterMidnight() {
+        val option = trainOption(
+            trainNo = "99",
+            minutes = 75,
+            discounted = false,
+            departure = LocalTime.of(23, 40),
+        )
+
+        assertEquals(75, option.duration.toMinutes())
     }
 
     @Test
@@ -164,14 +179,19 @@ class SearchDashboardServiceTest {
         ),
     )
 
-    private fun trainOption(trainNo: String, minutes: Long, discounted: Boolean) =
+    private fun trainOption(
+        trainNo: String,
+        minutes: Long,
+        discounted: Boolean,
+        departure: LocalTime = LocalTime.of(9, 0),
+    ) =
         com.chiiii5640.thsrapp.core.model.TrainOption(
             trainNo = trainNo,
             origin = Station.Taipei,
             destination = Station.Zuoying,
             travelDate = LocalDate.of(2026, 5, 12),
-            departureTime = LocalTime.of(9, 0),
-            arrivalTime = LocalTime.of(9, 0).plusMinutes(minutes),
+            departureTime = departure,
+            arrivalTime = departure.plusMinutes(minutes),
             stops = emptyList(),
             bookingStatus = com.chiiii5640.thsrapp.core.model.BookingStatus.Available,
             seatAvailability = SeatAvailabilityDetail(

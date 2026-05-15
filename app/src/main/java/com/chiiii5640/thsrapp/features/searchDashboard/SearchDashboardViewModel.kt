@@ -67,6 +67,7 @@ class SearchDashboardViewModel(
         )
     }
     fun setFilter(filter: ResultFilter) = _uiState.update { it.copy(selectedFilter = filter) }
+    fun setFastestDuration(duration: Long) = _uiState.update { it.copy(selectedFastestDuration = duration) }
     fun setShowingScheduledNotifications(showing: Boolean) = _uiState.update { it.copy(showingScheduledNotifications = showing) }
     fun search() = submit(forceRefresh = false)
     fun forceRefresh() = submit(forceRefresh = true)
@@ -120,6 +121,7 @@ data class SearchDashboardUiState(
     val travelDate: LocalDate,
     val departureAfter: LocalTime,
     val selectedFilter: ResultFilter = ResultFilter.All,
+    val selectedFastestDuration: Long? = null,
     val loadState: SearchLoadState = SearchLoadState.Idle,
     val showingScheduledNotifications: Boolean = false,
     val scheduledNotifications: List<ScheduledBookingNotification> = emptyList(),

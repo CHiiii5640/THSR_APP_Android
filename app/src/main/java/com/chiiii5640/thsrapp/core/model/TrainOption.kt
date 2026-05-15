@@ -19,10 +19,16 @@ data class TrainOption(
     val source: TrainDataSource,
 ) {
     val duration: Duration
-        get() = Duration.between(
-            LocalDateTime.of(travelDate, departureTime),
-            LocalDateTime.of(travelDate, arrivalTime),
-        )
+        get() {
+            val departure = LocalDateTime.of(travelDate, departureTime)
+            val sameDayArrival = LocalDateTime.of(travelDate, arrivalTime)
+            val resolvedArrival = if (arrivalTime.isBefore(departureTime)) {
+                sameDayArrival.plusDays(1)
+            } else {
+                sameDayArrival
+            }
+            return Duration.between(departure, resolvedArrival)
+        }
 
     val seatStatus: SeatStatus
         get() = seatAvailability?.summary ?: SeatStatus.Unknown

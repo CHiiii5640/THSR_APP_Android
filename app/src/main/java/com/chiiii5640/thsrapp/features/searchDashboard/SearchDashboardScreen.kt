@@ -52,10 +52,12 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -77,6 +79,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
+import kotlinx.coroutines.launch
 
 private enum class SourceRowKind {
     Timetable,
@@ -90,7 +93,12 @@ private enum class SourceRowKind {
 fun SearchDashboardScreen(viewModel: SearchDashboardViewModel) {
     val state by viewModel.uiState.collectAsState()
     val result = (state.loadState as? SearchLoadState.Loaded)?.result
-    val filtered = state.selectedFilter.apply(result?.options.orEmpty())
+    val options = result?.options.orEmpty()
+    val fastestDurations = ResultFilter.fastestDurationOptions(options)
+    val resolvedFastestDuration = state.selectedFastestDuration
+        ?.takeIf { it in fastestDurations }
+        ?: fastestDurations.firstOrNull()
+    val filtered = state.selectedFilter.apply(options, resolvedFastestDuration)
     val tokens = ThsrDesignTokens
     val listState = rememberLazyListState()
     val scheduledNotificationsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -201,7 +209,10 @@ fun SearchDashboardScreen(viewModel: SearchDashboardViewModel) {
                         item {
                             ResultFilterBar(
                                 selected = state.selectedFilter,
+                                fastestDurations = fastestDurations,
+                                selectedFastestDuration = resolvedFastestDuration,
                                 onSelected = viewModel::setFilter,
+                                onFastestDurationSelected = viewModel::setFastestDuration,
                             )
                         }
                         item {
@@ -686,10 +697,24 @@ private fun DataSourceRow(row: DashboardSourceRow) {
 @Composable
 private fun ResultFilterBar(
     selected: ResultFilter,
+    fastestDurations: List<Long>,
+    selectedFastestDuration: Long?,
     onSelected: (ResultFilter) -> Unit,
+    onFastestDurationSelected: (Long) -> Unit,
 ) {
     val tokens = ThsrDesignTokens
+    val listState = rememberLazyListState()
+    val coroutineScope = rememberCoroutineScope()
+    val fastestMenuIndex = ResultFilter.entries.size
+
+    LaunchedEffect(selected, fastestDurations) {
+        if (selected == ResultFilter.Fastest && fastestDurations.isNotEmpty()) {
+            listState.animateScrollToItem(fastestMenuIndex)
+        }
+    }
+
     LazyRow(
+        state = listState,
         modifier = Modifier.fillMaxWidth(),
         contentPadding = PaddingValues(start = tokens.spacing.spacing4, end = tokens.spacing.spacing16),
         horizontalArrangement = Arrangement.spacedBy(tokens.spacing.spacing12),
@@ -698,11 +723,99 @@ private fun ResultFilterBar(
             FilterPill(
                 label = filter.label,
                 selected = filter == selected,
-                onClick = { onSelected(filter) },
+                onClick = {
+                    onSelected(filter)
+                    if (filter == ResultFilter.Fastest && fastestDurations.isNotEmpty()) {
+                        coroutineScope.launch {
+                            listState.animateScrollToItem(fastestMenuIndex)
+                        }
+                    }
+                },
             )
+        }
+        if (selected == ResultFilter.Fastest && fastestDurations.isNotEmpty()) {
+            item(key = "fastest-duration-menu") {
+                FastestDurationMenu(
+                    durations = fastestDurations,
+                    selectedDuration = selectedFastestDuration,
+                    onSelected = onFastestDurationSelected,
+                )
+            }
         }
     }
 }
+
+@Composable
+private fun FastestDurationMenu(
+    durations: List<Long>,
+    selectedDuration: Long?,
+    onSelected: (Long) -> Unit,
+) {
+    val tokens = ThsrDesignTokens
+    var expanded by remember { mutableStateOf(false) }
+    Surface(
+        modifier = Modifier
+            .height(tokens.sizes.chipHeight)
+            .clip(RoundedCornerShape(tokens.radii.chipRadius))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = { expanded = true },
+            ),
+        color = tokens.colors.surfaceColor,
+        shape = RoundedCornerShape(tokens.radii.chipRadius),
+        tonalElevation = 0.dp,
+    ) {
+        Box(
+            modifier = Modifier.padding(
+                horizontal = tokens.spacing.spacing16,
+                vertical = tokens.spacing.spacing4,
+            ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(tokens.spacing.spacing8),
+            ) {
+                Text(
+                    text = selectedDuration?.let(::durationLabel) ?: "選擇時間",
+                    color = tokens.colors.textSecondary,
+                    style = tokens.typography.pill,
+                )
+                Icon(
+                    imageVector = Icons.Outlined.KeyboardArrowDown,
+                    contentDescription = null,
+                    tint = tokens.colors.textSecondary,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                durations.forEach { duration ->
+                    DropdownMenuItem(
+                        text = { Text(durationLabel(duration)) },
+                        onClick = {
+                            expanded = false
+                            onSelected(duration)
+                        },
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun durationLabel(minutes: Long): String =
+    if (minutes < 60) {
+        "${minutes} 分鐘"
+    } else {
+        val hours = minutes / 60
+        val remainder = minutes % 60
+        if (remainder == 0L) {
+            "${hours} 小時"
+        } else {
+            "${hours} 小時 ${remainder} 分鐘"
+        }
+    }
 
 @Composable
 private fun FilterPill(

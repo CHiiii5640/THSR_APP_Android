@@ -104,6 +104,7 @@ class FeedDiscountService(
             .asSequence()
             .filter { it.direction == direction && it.matches(query.travelDate) }
             .filter { it.stops.containsKey(query.origin.localName) && it.stops.containsKey(query.destination.localName) }
+            .filter { it.hasOrderedStops(query.origin, query.destination) }
             .toList()
 
         if (matchingScheduleRules.isEmpty()) return emptyList()
@@ -233,6 +234,15 @@ class FeedDiscountService(
 
         return (legacyOffers + ruleOffers)
             .distinctBy { "${it.type}-${it.label}-${it.percentOff}" }
+    }
+}
+
+private fun DiscountFeedScheduleRule.hasOrderedStops(origin: Station, destination: Station): Boolean {
+    if (!stops.containsKey(origin.localName) || !stops.containsKey(destination.localName)) return false
+    return when (direction) {
+        "南下" -> origin.sortIndex < destination.sortIndex
+        "北上" -> origin.sortIndex > destination.sortIndex
+        else -> false
     }
 }
 
