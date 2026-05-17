@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -75,7 +76,8 @@ import com.chiiii5640.thsrapp.core.model.Station
 import com.chiiii5640.thsrapp.core.time.ThsrFormatters
 import com.chiiii5640.thsrapp.features.bookingNotifications.ScheduledNotificationsScreen
 import com.chiiii5640.thsrapp.features.bookingNotifications.ScheduledBookingNotification
-import com.chiiii5640.thsrapp.features.trainResults.TrainResultsGroup
+import com.chiiii5640.thsrapp.features.bookingNotifications.BookingNotificationScheduler
+import com.chiiii5640.thsrapp.features.trainResults.TrainOptionCard
 import com.chiiii5640.thsrapp.ui.layout.rememberThsrLayoutProfile
 import com.chiiii5640.thsrapp.ui.theme.ThsrDesignTokens
 import java.time.Instant
@@ -102,6 +104,7 @@ fun SearchDashboardScreen(viewModel: SearchDashboardViewModel) {
         ?.takeIf { it in fastestDurations }
         ?: fastestDurations.firstOrNull()
     val filtered = state.selectedFilter.apply(options, resolvedFastestDuration)
+    val scheduledById = state.scheduledNotifications.associateBy(ScheduledBookingNotification::id)
     val tokens = ThsrDesignTokens
     val layoutProfile = rememberThsrLayoutProfile()
     val listState = rememberLazyListState()
@@ -226,15 +229,24 @@ fun SearchDashboardScreen(viewModel: SearchDashboardViewModel) {
                                     onFastestDurationSelected = viewModel::setFastestDuration,
                                 )
                             }
-                            item {
-                                TrainResultsGroup(
-                                    options = filtered,
-                                    scheduledNotifications = state.scheduledNotifications.associateBy(ScheduledBookingNotification::id),
-                                    layoutProfile = layoutProfile,
-                                    onScheduleNotification = viewModel::scheduleNotification,
-                                )
-                            }
+                        item {
+                            SearchResultCountSection(
+                                count = filtered.size,
+                            )
                         }
+                        itemsIndexed(
+                            items = filtered,
+                            key = { _, option -> BookingNotificationScheduler.notificationId(option) },
+                            contentType = { _, _ -> "train-option-card" },
+                        ) { _, option ->
+                            TrainOptionCard(
+                                option = option,
+                                scheduledNotification = scheduledById[BookingNotificationScheduler.notificationId(option)],
+                                layoutProfile = layoutProfile,
+                                onScheduleNotification = viewModel::scheduleNotification,
+                            )
+                        }
+                    }
                     }
                 }
             }
@@ -258,6 +270,19 @@ fun SearchDashboardScreen(viewModel: SearchDashboardViewModel) {
             }
         }
     }
+}
+
+@Composable
+private fun SearchResultCountSection(
+    count: Int,
+) {
+    val tokens = ThsrDesignTokens
+    Text(
+        text = "${count} 班符合條件",
+        color = tokens.colors.textSecondary,
+        style = tokens.typography.sectionLabel,
+        modifier = Modifier.padding(horizontal = tokens.spacing.spacing4),
+    )
 }
 
 @Composable
