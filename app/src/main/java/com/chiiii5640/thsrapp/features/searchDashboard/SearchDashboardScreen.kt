@@ -230,6 +230,7 @@ fun SearchDashboardScreen(viewModel: SearchDashboardViewModel) {
                                 TrainResultsGroup(
                                     options = filtered,
                                     scheduledNotifications = state.scheduledNotifications.associateBy(ScheduledBookingNotification::id),
+                                    layoutProfile = layoutProfile,
                                     onScheduleNotification = viewModel::scheduleNotification,
                                 )
                             }

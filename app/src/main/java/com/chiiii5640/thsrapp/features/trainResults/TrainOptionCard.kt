@@ -68,6 +68,7 @@ import com.chiiii5640.thsrapp.features.bookingNotifications.BookingNotificationD
 import com.chiiii5640.thsrapp.features.bookingNotifications.BookingNotificationSheet
 import com.chiiii5640.thsrapp.features.bookingNotifications.BookingNotificationScheduler
 import com.chiiii5640.thsrapp.features.bookingNotifications.ScheduledBookingNotification
+import com.chiiii5640.thsrapp.ui.layout.ThsrLayoutProfile
 import com.chiiii5640.thsrapp.ui.theme.ThsrColorTokens
 import com.chiiii5640.thsrapp.ui.theme.ThsrDesignTokens
 import kotlinx.coroutines.delay
@@ -87,6 +88,7 @@ private val bookingStatusDateFormatter: DateTimeFormatter = DateTimeFormatter.of
 fun TrainResultsGroup(
     options: List<TrainOption>,
     scheduledNotifications: Map<String, ScheduledBookingNotification>,
+    layoutProfile: ThsrLayoutProfile,
     onScheduleNotification: (TrainOption, LocalDateTime) -> Unit,
 ) {
     val tokens = ThsrDesignTokens
@@ -112,6 +114,7 @@ fun TrainResultsGroup(
                 TrainOptionCard(
                     option = option,
                     scheduledNotification = scheduledNotifications[BookingNotificationScheduler.notificationId(option)],
+                    layoutProfile = layoutProfile,
                     onScheduleNotification = onScheduleNotification,
                 )
                 if (index != options.lastIndex) {
@@ -130,6 +133,7 @@ fun TrainResultsGroup(
 fun TrainOptionCard(
     option: TrainOption,
     scheduledNotification: ScheduledBookingNotification?,
+    layoutProfile: ThsrLayoutProfile,
     onScheduleNotification: (TrainOption, LocalDateTime) -> Unit,
 ) {
     val tokens = ThsrDesignTokens
@@ -236,7 +240,10 @@ fun TrainOptionCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(rowColor)
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                    .padding(
+                        horizontal = layoutProfile.cardContentHorizontalPadding,
+                        vertical = 14.dp,
+                    ),
                 verticalArrangement = Arrangement.spacedBy(tokens.spacing.spacing8),
             ) {
                 Row(
@@ -274,7 +281,10 @@ fun TrainOptionCard(
                         expandVertically(animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = 0.80f)),
                     exit = fadeOut() + shrinkVertically(),
                 ) {
-                    StopTimeline(stops = option.stops)
+                    StopTimeline(
+                        option = option,
+                        layoutProfile = layoutProfile,
+                    )
                 }
 
                 if (option.discounts.isNotEmpty()) {
