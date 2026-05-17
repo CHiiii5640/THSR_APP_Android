@@ -8,6 +8,7 @@ import com.chiiii5640.thsrapp.core.model.SourceState
 import com.chiiii5640.thsrapp.core.model.SourceStatus
 import com.chiiii5640.thsrapp.core.model.Station
 import com.chiiii5640.thsrapp.core.model.TimelineStop
+import com.chiiii5640.thsrapp.core.model.TrainServiceState
 import com.chiiii5640.thsrapp.core.model.TripQuery
 import com.chiiii5640.thsrapp.core.model.BookingStatus
 import com.chiiii5640.thsrapp.features.discounts.DiscountProvider
@@ -160,6 +161,36 @@ class SearchDashboardServiceTest {
         val status = result.options.single().bookingStatus
         assertTrue(status is BookingStatus.NotYetOpen)
         assertEquals(LocalDate.of(2026, 5, 13), (status as BookingStatus.NotYetOpen).openingDate)
+    }
+
+    @Test
+    fun trainLiveStatusIsInTransitDuringMidSegment() = runTest {
+        val midRouteClock = Clock.fixed(Instant.parse("2026-05-11T22:30:00Z"), ZoneId.of("Asia/Taipei"))
+        val service = SearchDashboardService(
+            timetableProvider = FakeTimetableProvider(listOf(train(0))),
+            seatAvailabilityProvider = FakeSeatProvider(),
+            discountProvider = FakeDiscountProvider(),
+            clock = midRouteClock,
+        )
+
+        val result = service.search(query().copy(departureAfter = LocalTime.MIDNIGHT))
+
+        assertEquals(TrainServiceState.InTransit, result.options.single().liveStatus.serviceState)
+    }
+
+    @Test
+    fun trainLiveStatusIsDepartingSoonNearDeparture() = runTest {
+        val departureSoonClock = Clock.fixed(Instant.parse("2026-05-11T21:56:00Z"), ZoneId.of("Asia/Taipei"))
+        val service = SearchDashboardService(
+            timetableProvider = FakeTimetableProvider(listOf(train(0))),
+            seatAvailabilityProvider = FakeSeatProvider(),
+            discountProvider = FakeDiscountProvider(),
+            clock = departureSoonClock,
+        )
+
+        val result = service.search(query().copy(departureAfter = LocalTime.MIDNIGHT))
+
+        assertEquals(TrainServiceState.DepartingSoon, result.options.single().liveStatus.serviceState)
     }
 
     private fun query(): TripQuery = TripQuery(

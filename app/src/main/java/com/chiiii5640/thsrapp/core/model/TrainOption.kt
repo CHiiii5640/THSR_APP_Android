@@ -17,6 +17,7 @@ data class TrainOption(
     val seatAvailability: SeatAvailabilityDetail?,
     val discounts: List<DiscountOffer>,
     val source: TrainDataSource,
+    val liveStatus: TrainLiveStatus = TrainLiveStatus.unresolved(),
 ) {
     val duration: Duration
         get() {
@@ -42,6 +43,42 @@ data class TrainOption(
     val canScheduleBookingNotification: Boolean
         get() = bookingNotificationOpeningDate != null
 }
+
+data class TrainLiveStatus(
+    val serviceState: TrainServiceState,
+    val summary: TimelineStatusSummary,
+) {
+    companion object {
+        fun unresolved(): TrainLiveStatus = TrainLiveStatus(
+            serviceState = TrainServiceState.NotDeparted,
+            summary = TimelineStatusSummary(
+                headline = "等待班次更新",
+                detail = "尚未取得即時行車狀態",
+                currentStopIndex = null,
+                nextStopIndex = null,
+                activeSegmentIndex = null,
+            ),
+        )
+    }
+}
+
+enum class TrainServiceState {
+    NotDeparted,
+    DepartingSoon,
+    InTransit,
+    ApproachingStation,
+    DwellingAtStation,
+    DepartedStation,
+    ArrivedDestination,
+}
+
+data class TimelineStatusSummary(
+    val headline: String,
+    val detail: String,
+    val currentStopIndex: Int?,
+    val nextStopIndex: Int?,
+    val activeSegmentIndex: Int?,
+)
 
 data class TimelineStop(
     val station: Station,
