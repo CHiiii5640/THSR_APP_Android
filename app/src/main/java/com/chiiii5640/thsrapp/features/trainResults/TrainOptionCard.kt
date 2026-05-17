@@ -274,6 +274,7 @@ fun TrainOptionCard(
                 }
 
                 TimeRouteRow(option = option)
+                LiveStatusRow(option = option)
 
                 AnimatedVisibility(
                     visible = expanded,
@@ -528,6 +529,37 @@ private fun TimeRouteRow(option: TrainOption) {
             time = ThsrFormatters.displayTimetableTime(option.arrivalTime),
             station = option.destination.localName,
             modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+@Composable
+private fun LiveStatusRow(
+    option: TrainOption,
+) {
+    val tokens = ThsrDesignTokens
+    val tint = when (option.liveStatus.serviceState) {
+        com.chiiii5640.thsrapp.core.model.TrainServiceState.NotDeparted -> tokens.colors.textSecondary
+        com.chiiii5640.thsrapp.core.model.TrainServiceState.DepartingSoon,
+        com.chiiii5640.thsrapp.core.model.TrainServiceState.ApproachingStation,
+        com.chiiii5640.thsrapp.core.model.TrainServiceState.DwellingAtStation,
+        -> tokens.colors.warningOrange
+        com.chiiii5640.thsrapp.core.model.TrainServiceState.ArrivedDestination -> tokens.colors.successGreen
+        else -> tokens.colors.primaryBlue
+    }
+    Surface(
+        color = tint.copy(alpha = 0.14f),
+        shape = RoundedCornerShape(tokens.radii.chipRadius),
+        tonalElevation = 0.dp,
+    ) {
+        Text(
+            text = "${option.liveStatus.summary.headline} · ${option.liveStatus.summary.detail}",
+            color = tint,
+            style = tokens.typography.captionStrong,
+            modifier = Modifier.padding(
+                horizontal = tokens.spacing.spacing8,
+                vertical = tokens.spacing.spacing4,
+            ),
         )
     }
 }
