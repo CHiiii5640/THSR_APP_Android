@@ -299,81 +299,170 @@ fun TrainOptionCard(
                 }
 
                 option.seatAvailability?.let { seatAvailability ->
-                    SeatAvailabilityBlock(seatAvailability)
+                    SeatAvailabilityBlock(
+                        seatAvailability = seatAvailability,
+                        layoutProfile = layoutProfile,
+                    )
                 }
 
                 if (!expanded) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = "停靠 ${option.stops.size} 站",
-                            color = tokens.colors.textPrimary,
-                            style = tokens.typography.bodyStrong,
-                            modifier = Modifier.weight(1f),
-                        )
-                        if (option.bookingStatus is BookingStatus.NotYetOpen) {
-                            FooterAction(
-                                label = "通知",
-                                tint = notificationState.actionTint,
-                                onClick = ::openNotificationSheet,
-                                leading = {
-                                    Icon(
-                                        imageVector = Icons.Outlined.NotificationsNone,
-                                        contentDescription = null,
+                    if (layoutProfile.isLargeFont) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(tokens.spacing.spacing8),
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = "停靠 ${option.stops.size} 站",
+                                    color = tokens.colors.textPrimary,
+                                    style = tokens.typography.bodyStrong,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                Text(
+                                    text = option.durationLabel(),
+                                    color = tokens.colors.textTertiary,
+                                    style = tokens.typography.captionStrong,
+                                )
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(tokens.spacing.spacing12),
+                            ) {
+                                if (option.bookingStatus is BookingStatus.NotYetOpen) {
+                                    FooterAction(
+                                        label = "通知",
                                         tint = notificationState.actionTint,
-                                        modifier = Modifier.size(tokens.spacing.spacing16),
+                                        onClick = ::openNotificationSheet,
+                                        leading = {
+                                            Icon(
+                                                imageVector = Icons.Outlined.NotificationsNone,
+                                                contentDescription = null,
+                                                tint = notificationState.actionTint,
+                                                modifier = Modifier.size(tokens.spacing.spacing16),
+                                            )
+                                        },
+                                    )
+                                }
+                                Spacer(Modifier.weight(1f))
+                                FooterAction(
+                                    label = "查看",
+                                    onClick = { expanded = true },
+                                    trailing = {
+                                        Icon(
+                                            imageVector = Icons.Outlined.ChevronRight,
+                                            contentDescription = null,
+                                            tint = tokens.colors.primaryBlue,
+                                            modifier = Modifier.size(tokens.sizes.disclosureIcon),
+                                        )
+                                    },
+                                )
+                            }
+                        }
+                    } else {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = "停靠 ${option.stops.size} 站",
+                                color = tokens.colors.textPrimary,
+                                style = tokens.typography.bodyStrong,
+                                modifier = Modifier.weight(1f),
+                            )
+                            if (option.bookingStatus is BookingStatus.NotYetOpen) {
+                                FooterAction(
+                                    label = "通知",
+                                    tint = notificationState.actionTint,
+                                    onClick = ::openNotificationSheet,
+                                    leading = {
+                                        Icon(
+                                            imageVector = Icons.Outlined.NotificationsNone,
+                                            contentDescription = null,
+                                            tint = notificationState.actionTint,
+                                            modifier = Modifier.size(tokens.spacing.spacing16),
+                                        )
+                                    },
+                                )
+                                Spacer(Modifier.width(tokens.spacing.spacing12))
+                            }
+                            Text(
+                                text = option.durationLabel(),
+                                color = tokens.colors.textTertiary,
+                                style = tokens.typography.captionStrong,
+                            )
+                            Spacer(Modifier.width(tokens.spacing.spacing12))
+                            FooterAction(
+                                label = "查看",
+                                onClick = { expanded = true },
+                                trailing = {
+                                    Icon(
+                                        imageVector = Icons.Outlined.ChevronRight,
+                                        contentDescription = null,
+                                        tint = tokens.colors.primaryBlue,
+                                        modifier = Modifier.size(tokens.sizes.disclosureIcon),
                                     )
                                 },
                             )
-                            Spacer(Modifier.width(tokens.spacing.spacing12))
                         }
-                        Text(
-                            text = option.durationLabel(),
-                            color = tokens.colors.textTertiary,
-                            style = tokens.typography.captionStrong,
-                        )
-                        Spacer(Modifier.width(tokens.spacing.spacing12))
-                        FooterAction(
-                            label = "查看",
-                            onClick = { expanded = true },
-                            trailing = {
-                                Icon(
-                                    imageVector = Icons.Outlined.ChevronRight,
-                                    contentDescription = null,
-                                    tint = tokens.colors.primaryBlue,
-                                    modifier = Modifier.size(tokens.sizes.disclosureIcon),
-                                )
-                            },
-                        )
                     }
                 } else {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = option.source.timetable.cardSourceLabel(),
-                            color = tokens.colors.textTertiary,
-                            style = tokens.typography.caption,
-                            modifier = Modifier.weight(1f),
-                        )
-                        if (option.bookingStatus is BookingStatus.NotYetOpen) {
-                            Spacer(Modifier.width(tokens.spacing.spacing12))
-                            FooterAction(
-                                label = "通知",
-                                tint = notificationState.actionTint,
-                                onClick = ::openNotificationSheet,
-                                leading = {
-                                    Icon(
-                                        imageVector = Icons.Outlined.NotificationsNone,
-                                        contentDescription = null,
-                                        tint = notificationState.actionTint,
-                                        modifier = Modifier.size(tokens.spacing.spacing16),
-                                    )
-                                },
+                    if (layoutProfile.isLargeFont) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(tokens.spacing.spacing8),
+                        ) {
+                            Text(
+                                text = option.source.timetable.cardSourceLabel(),
+                                color = tokens.colors.textTertiary,
+                                style = tokens.typography.caption,
                             )
+                            if (option.bookingStatus is BookingStatus.NotYetOpen) {
+                                FooterAction(
+                                    label = "通知",
+                                    tint = notificationState.actionTint,
+                                    onClick = ::openNotificationSheet,
+                                    leading = {
+                                        Icon(
+                                            imageVector = Icons.Outlined.NotificationsNone,
+                                            contentDescription = null,
+                                            tint = notificationState.actionTint,
+                                            modifier = Modifier.size(tokens.spacing.spacing16),
+                                        )
+                                    },
+                                )
+                            }
+                        }
+                    } else {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = option.source.timetable.cardSourceLabel(),
+                                color = tokens.colors.textTertiary,
+                                style = tokens.typography.caption,
+                                modifier = Modifier.weight(1f),
+                            )
+                            if (option.bookingStatus is BookingStatus.NotYetOpen) {
+                                Spacer(Modifier.width(tokens.spacing.spacing12))
+                                FooterAction(
+                                    label = "通知",
+                                    tint = notificationState.actionTint,
+                                    onClick = ::openNotificationSheet,
+                                    leading = {
+                                        Icon(
+                                            imageVector = Icons.Outlined.NotificationsNone,
+                                            contentDescription = null,
+                                            tint = notificationState.actionTint,
+                                            modifier = Modifier.size(tokens.spacing.spacing16),
+                                        )
+                                    },
+                                )
+                            }
                         }
                     }
                 }
@@ -524,7 +613,10 @@ private fun BookingStatusBadge(
 }
 
 @Composable
-private fun SeatAvailabilityBlock(seatAvailability: SeatAvailabilityDetail) {
+private fun SeatAvailabilityBlock(
+    seatAvailability: SeatAvailabilityDetail,
+    layoutProfile: ThsrLayoutProfile,
+) {
     val tokens = ThsrDesignTokens
     Column(
         verticalArrangement = Arrangement.spacedBy(tokens.spacing.spacing8),
@@ -533,11 +625,13 @@ private fun SeatAvailabilityBlock(seatAvailability: SeatAvailabilityDetail) {
             source = "OD",
             standard = seatAvailability.standardSeatStatus,
             business = seatAvailability.businessSeatStatus,
+            layoutProfile = layoutProfile,
         )
         SeatStatusSourceRow(
             source = "看板",
             standard = if (seatAvailability.hasBoardSeatStatus) seatAvailability.boardStandardSeatStatus else SeatStatus.Unknown,
             business = if (seatAvailability.hasBoardSeatStatus) seatAvailability.boardBusinessSeatStatus else SeatStatus.Unknown,
+            layoutProfile = layoutProfile,
         )
     }
 }
@@ -547,6 +641,7 @@ private fun SeatStatusSourceRow(
     source: String,
     standard: SeatStatus,
     business: SeatStatus,
+    layoutProfile: ThsrLayoutProfile,
 ) {
     val tokens = ThsrDesignTokens
     Row(
@@ -558,7 +653,7 @@ private fun SeatStatusSourceRow(
             text = source,
             color = tokens.colors.textSecondary,
             style = tokens.typography.captionStrong,
-            modifier = Modifier.width(28.dp),
+            modifier = Modifier.width(if (layoutProfile.isLargeFont) 34.dp else 28.dp),
         )
         Row(
             modifier = Modifier.weight(1f),
