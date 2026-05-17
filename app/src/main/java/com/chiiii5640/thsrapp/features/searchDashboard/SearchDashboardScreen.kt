@@ -6,6 +6,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -74,6 +76,7 @@ import com.chiiii5640.thsrapp.core.time.ThsrFormatters
 import com.chiiii5640.thsrapp.features.bookingNotifications.ScheduledNotificationsScreen
 import com.chiiii5640.thsrapp.features.bookingNotifications.ScheduledBookingNotification
 import com.chiiii5640.thsrapp.features.trainResults.TrainResultsGroup
+import com.chiiii5640.thsrapp.ui.layout.rememberThsrLayoutProfile
 import com.chiiii5640.thsrapp.ui.theme.ThsrDesignTokens
 import java.time.Instant
 import java.time.LocalDate
@@ -100,6 +103,7 @@ fun SearchDashboardScreen(viewModel: SearchDashboardViewModel) {
         ?: fastestDurations.firstOrNull()
     val filtered = state.selectedFilter.apply(options, resolvedFastestDuration)
     val tokens = ThsrDesignTokens
+    val layoutProfile = rememberThsrLayoutProfile()
     val listState = rememberLazyListState()
     val scheduledNotificationsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -174,53 +178,61 @@ fun SearchDashboardScreen(viewModel: SearchDashboardViewModel) {
             )
         },
     ) { padding ->
-        LazyColumn(
-            state = listState,
+        BoxWithConstraints(
             modifier = Modifier
-                .fillMaxHeight()
+                .fillMaxSize()
                 .padding(padding)
                 .background(tokens.colors.backgroundColor),
-            verticalArrangement = Arrangement.spacedBy(tokens.spacing.spacing12),
-            contentPadding = PaddingValues(
-                start = tokens.spacing.spacing16,
-                top = tokens.spacing.spacing8,
-                end = tokens.spacing.spacing16,
-                bottom = tokens.spacing.spacing20,
-            ),
         ) {
-            if (!state.showingScheduledNotifications) {
-                item {
-                    QueryFormSection(
-                        state = state,
-                        onOrigin = viewModel::setOrigin,
-                        onDestination = viewModel::setDestination,
-                        onTravelDate = viewModel::setTravelDate,
-                        onDepartureAfter = viewModel::setDepartureAfter,
-                        onSwap = viewModel::swapRoute,
-                        onForceRefresh = viewModel::forceRefresh,
-                    )
-                }
-                when (val loadState = state.loadState) {
-                    SearchLoadState.Idle -> item { EmptyHint("設定查詢條件後，即可查看當天班次與資料來源狀態。") }
-                    SearchLoadState.Loading -> item { LoadingSection() }
-                    is SearchLoadState.Failed -> item { ErrorSection(loadState.message) }
-                    is SearchLoadState.Loaded -> {
-                        item { DataSourceSection(loadState.result) }
-                        item {
-                            ResultFilterBar(
-                                selected = state.selectedFilter,
-                                fastestDurations = fastestDurations,
-                                selectedFastestDuration = resolvedFastestDuration,
-                                onSelected = viewModel::setFilter,
-                                onFastestDurationSelected = viewModel::setFastestDuration,
-                            )
-                        }
-                        item {
-                            TrainResultsGroup(
-                                options = filtered,
-                                scheduledNotifications = state.scheduledNotifications.associateBy(ScheduledBookingNotification::id),
-                                onScheduleNotification = viewModel::scheduleNotification,
-                            )
+            val listMaxWidth = minOf(maxWidth, layoutProfile.contentMaxWidth)
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .align(Alignment.TopCenter)
+                    .widthIn(max = listMaxWidth),
+                verticalArrangement = Arrangement.spacedBy(layoutProfile.sectionSpacing),
+                contentPadding = PaddingValues(
+                    start = layoutProfile.contentHorizontalPadding,
+                    top = tokens.spacing.spacing8,
+                    end = layoutProfile.contentHorizontalPadding,
+                    bottom = tokens.spacing.spacing20,
+                ),
+            ) {
+                if (!state.showingScheduledNotifications) {
+                    item {
+                        QueryFormSection(
+                            state = state,
+                            onOrigin = viewModel::setOrigin,
+                            onDestination = viewModel::setDestination,
+                            onTravelDate = viewModel::setTravelDate,
+                            onDepartureAfter = viewModel::setDepartureAfter,
+                            onSwap = viewModel::swapRoute,
+                            onForceRefresh = viewModel::forceRefresh,
+                        )
+                    }
+                    when (val loadState = state.loadState) {
+                        SearchLoadState.Idle -> item { EmptyHint("設定查詢條件後，即可查看當天班次與資料來源狀態。") }
+                        SearchLoadState.Loading -> item { LoadingSection() }
+                        is SearchLoadState.Failed -> item { ErrorSection(loadState.message) }
+                        is SearchLoadState.Loaded -> {
+                            item { DataSourceSection(loadState.result) }
+                            item {
+                                ResultFilterBar(
+                                    selected = state.selectedFilter,
+                                    fastestDurations = fastestDurations,
+                                    selectedFastestDuration = resolvedFastestDuration,
+                                    onSelected = viewModel::setFilter,
+                                    onFastestDurationSelected = viewModel::setFastestDuration,
+                                )
+                            }
+                            item {
+                                TrainResultsGroup(
+                                    options = filtered,
+                                    scheduledNotifications = state.scheduledNotifications.associateBy(ScheduledBookingNotification::id),
+                                    onScheduleNotification = viewModel::scheduleNotification,
+                                )
+                            }
                         }
                     }
                 }
@@ -238,6 +250,7 @@ fun SearchDashboardScreen(viewModel: SearchDashboardViewModel) {
             ) {
                 ScheduledNotificationsSheetContent(
                     state = state,
+                    layoutProfile = layoutProfile,
                     onDismiss = { viewModel.setShowingScheduledNotifications(false) },
                     onCancel = viewModel::cancelNotification,
                 )
@@ -249,6 +262,7 @@ fun SearchDashboardScreen(viewModel: SearchDashboardViewModel) {
 @Composable
 private fun ScheduledNotificationsSheetContent(
     state: SearchDashboardUiState,
+    layoutProfile: com.chiiii5640.thsrapp.ui.layout.ThsrLayoutProfile,
     onDismiss: () -> Unit,
     onCancel: (String) -> Unit,
 ) {
@@ -257,23 +271,31 @@ private fun ScheduledNotificationsSheetContent(
         modifier = Modifier
             .fillMaxWidth()
             .fillMaxHeight(0.92f)
-            .padding(horizontal = 24.dp, vertical = 28.dp),
+            .padding(
+                horizontal = layoutProfile.sheetHorizontalPadding,
+                vertical = layoutProfile.sheetTopPadding,
+            ),
         verticalArrangement = Arrangement.spacedBy(22.dp),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Spacer(Modifier.width(64.dp))
+            Spacer(Modifier.weight(1f))
             Text(
                 text = "已設定的通知",
                 color = tokens.colors.textPrimary,
                 style = tokens.typography.largeTitle,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(2f),
                 textAlign = TextAlign.Center,
             )
-            TextButton(onClick = onDismiss) {
-                Text("完成", color = tokens.colors.primaryBlue)
+            Box(
+                modifier = Modifier.weight(1f),
+                contentAlignment = Alignment.CenterEnd,
+            ) {
+                TextButton(onClick = onDismiss) {
+                    Text("完成", color = tokens.colors.primaryBlue)
+                }
             }
         }
 
