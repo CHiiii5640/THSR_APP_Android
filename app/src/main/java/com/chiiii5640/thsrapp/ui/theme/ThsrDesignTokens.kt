@@ -16,6 +16,7 @@ data class ThsrColorTokens(
     val surfaceColor: Color,
     val cardColor: Color,
     val elevatedSurfaceColor: Color,
+    val deepCardColor: Color,
     val dividerColor: Color,
     val primaryBlue: Color,
     val successGreen: Color,
@@ -75,6 +76,45 @@ data class ThsrTypographyTokens(
     val cardTime: TextStyle,
     val cardRoute: TextStyle,
     val cardMeta: TextStyle,
+    val statusPill: TextStyle,
+    val timelineTime: TextStyle,
+    val timelineStation: TextStyle,
+)
+
+@Immutable
+data class ThsrOpacityTokens(
+    val subduedText: Float,
+    val mutedText: Float,
+    val faintText: Float,
+    val inactiveTimeline: Float,
+)
+
+@Immutable
+data class ThsrTrainCardTokens(
+    val collapsedBackground: Color,
+    val expandedBackground: Color,
+    val notificationHighlightBackground: Color,
+    val notificationScheduledBackground: Color,
+    val collapsedBorder: Color,
+    val expandedBorder: Color,
+    val notificationHighlightBorder: Color,
+    val notificationScheduledBorder: Color,
+    val itemVerticalSpacing: Dp,
+    val horizontalActionSpacing: Dp,
+    val verticalPadding: Dp,
+)
+
+@Immutable
+data class ThsrTimelineTokens(
+    val lineHeight: Dp,
+    val activeLineHeight: Dp,
+    val idleNodeSize: Dp,
+    val nextNodeSize: Dp,
+    val activeNodeSize: Dp,
+    val activeHaloSize: Dp,
+    val stationLabelGap: Dp,
+    val revealThreshold: Dp,
+    val leadingInset: Dp,
 )
 
 object ThsrDesignTokens {
@@ -83,6 +123,7 @@ object ThsrDesignTokens {
         surfaceColor = Color(0xFF1C1C1E),
         cardColor = Color(0xFF1F1F22),
         elevatedSurfaceColor = Color(0xFF2C2C2E),
+        deepCardColor = Color(0xFF172433),
         dividerColor = Color.White.copy(alpha = 0.10f),
         primaryBlue = Color(0xFF0A84FF),
         successGreen = Color(0xFF30D158),
@@ -199,28 +240,82 @@ object ThsrDesignTokens {
         cardTrainNo = TextStyle(
             fontFamily = FontFamily.Monospace,
             fontWeight = FontWeight.SemiBold,
-            fontSize = 28.sp,
-            lineHeight = 30.sp,
-            letterSpacing = (-0.6).sp,
+            fontSize = 25.sp,
+            lineHeight = 27.sp,
+            letterSpacing = (-0.35).sp,
         ),
         cardTime = TextStyle(
             fontFamily = FontFamily.Monospace,
             fontWeight = FontWeight.SemiBold,
-            fontSize = 24.sp,
-            lineHeight = 26.sp,
-            letterSpacing = (-0.5).sp,
+            fontSize = 22.sp,
+            lineHeight = 24.sp,
+            letterSpacing = (-0.18).sp,
         ),
         cardRoute = TextStyle(
             fontFamily = FontFamily.SansSerif,
             fontWeight = FontWeight.Normal,
-            fontSize = 13.sp,
-            lineHeight = 16.sp,
+            fontSize = 12.sp,
+            lineHeight = 15.sp,
         ),
         cardMeta = TextStyle(
             fontFamily = FontFamily.SansSerif,
             fontWeight = FontWeight.Medium,
-            fontSize = 13.sp,
-            lineHeight = 16.sp,
+            fontSize = 12.sp,
+            lineHeight = 15.sp,
         ),
+        statusPill = TextStyle(
+            fontFamily = FontFamily.SansSerif,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 12.sp,
+            lineHeight = 16.sp,
+            letterSpacing = (-0.1).sp,
+        ),
+        timelineTime = TextStyle(
+            fontFamily = FontFamily.SansSerif,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 11.sp,
+            lineHeight = 14.sp,
+            textAlign = TextAlign.Center,
+        ),
+        timelineStation = TextStyle(
+            fontFamily = FontFamily.SansSerif,
+            fontWeight = FontWeight.Normal,
+            fontSize = 10.sp,
+            lineHeight = 13.sp,
+            textAlign = TextAlign.Center,
+        ),
+    )
+
+    val opacity = ThsrOpacityTokens(
+        subduedText = 0.82f,
+        mutedText = 0.66f,
+        faintText = 0.48f,
+        inactiveTimeline = 0.38f,
+    )
+
+    val trainCard = ThsrTrainCardTokens(
+        collapsedBackground = Color(0xFF17191D),
+        expandedBackground = colors.deepCardColor,
+        notificationHighlightBackground = Color(0xFF2B2117),
+        notificationScheduledBackground = Color(0xFF18211B),
+        collapsedBorder = Color.White.copy(alpha = 0.07f),
+        expandedBorder = colors.primaryBlue.copy(alpha = 0.16f),
+        notificationHighlightBorder = colors.warningOrange.copy(alpha = 0.18f),
+        notificationScheduledBorder = colors.successGreen.copy(alpha = 0.14f),
+        itemVerticalSpacing = 6.dp,
+        horizontalActionSpacing = 4.dp,
+        verticalPadding = 9.dp,
+    )
+
+    val timeline = ThsrTimelineTokens(
+        lineHeight = 1.dp,
+        activeLineHeight = 2.dp,
+        idleNodeSize = 5.dp,
+        nextNodeSize = 7.dp,
+        activeNodeSize = 9.dp,
+        activeHaloSize = 14.dp,
+        stationLabelGap = 3.dp,
+        revealThreshold = 36.dp,
+        leadingInset = 18.dp,
     )
 }

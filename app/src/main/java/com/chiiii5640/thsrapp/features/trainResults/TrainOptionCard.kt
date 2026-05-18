@@ -32,6 +32,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.NotificationsNone
@@ -118,6 +119,7 @@ fun TrainOptionCard(
     onScheduleNotification: (TrainOption, LocalDateTime) -> Unit,
 ) {
     val tokens = ThsrDesignTokens
+    val cardTokens = tokens.trainCard
     val uriHandler = LocalUriHandler.current
     var showNotificationSheet by remember(option.trainNo, option.travelDate, option.origin, option.destination) {
         mutableStateOf(false)
@@ -175,7 +177,7 @@ fun TrainOptionCard(
 
     Box(
         modifier = Modifier
-            .padding(vertical = 4.dp)
+            .padding(vertical = 2.dp)
             .clip(RoundedCornerShape(tokens.radii.cornerRadiusLarge)),
     ) {
         SwipeToDismissBox(
@@ -212,8 +214,8 @@ fun TrainOptionCard(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(rowColor)
                     .clip(RoundedCornerShape(tokens.radii.cornerRadiusLarge))
+                    .background(rowColor)
                     .border(
                         width = 1.dp,
                         color = notificationState.strokeTint,
@@ -221,13 +223,13 @@ fun TrainOptionCard(
                     )
                     .padding(
                         horizontal = layoutProfile.cardContentHorizontalPadding,
-                        vertical = 10.dp,
+                        vertical = cardTokens.verticalPadding,
                     ),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(cardTokens.itemVerticalSpacing),
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
+                    verticalAlignment = Alignment.Top,
                 ) {
                     Text(
                         text = option.trainNo.padStart(4, '0'),
@@ -237,7 +239,7 @@ fun TrainOptionCard(
                     Spacer(Modifier.weight(1f))
                     Column(
                         horizontalAlignment = Alignment.End,
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalArrangement = Arrangement.spacedBy(3.dp),
                     ) {
                         BookingStatusBadge(
                             status = option.bookingStatus,
@@ -253,7 +255,6 @@ fun TrainOptionCard(
                 }
 
                 TimeRouteRow(option = option)
-                LiveStatusRow(option = option)
 
                 AnimatedVisibility(
                     visible = expanded,
@@ -293,6 +294,14 @@ fun TrainOptionCard(
                         label = option.source.timetable.cardSourceLabel(),
                         tint = tokens.colors.primaryBlue.copy(alpha = 0.92f),
                         onClick = { uriHandler.openUri(option.sourceUrl()) },
+                        leading = {
+                            Icon(
+                                imageVector = Icons.Outlined.Description,
+                                contentDescription = null,
+                                tint = tokens.colors.primaryBlue,
+                                modifier = Modifier.size(tokens.spacing.spacing16),
+                            )
+                        },
                     )
                     Spacer(Modifier.weight(1f))
                     FooterAction(
@@ -362,53 +371,14 @@ private fun TimeRouteRow(option: TrainOption) {
             imageVector = Icons.AutoMirrored.Outlined.ArrowForward,
             contentDescription = null,
             tint = tokens.colors.textDisabled,
-            modifier = Modifier.size(14.dp),
+            modifier = Modifier.size(13.dp),
         )
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(6.dp))
         TimeStationColumn(
             time = ThsrFormatters.displayTimetableTime(option.arrivalTime),
             station = option.destination.localName,
             modifier = Modifier.weight(1f),
         )
-    }
-}
-
-@Composable
-private fun LiveStatusRow(option: TrainOption) {
-    val tokens = ThsrDesignTokens
-    val tint = when (option.liveStatus.serviceState) {
-        com.chiiii5640.thsrapp.core.model.TrainServiceState.NotDeparted -> tokens.colors.textSecondary
-        com.chiiii5640.thsrapp.core.model.TrainServiceState.DepartingSoon,
-        com.chiiii5640.thsrapp.core.model.TrainServiceState.ApproachingStation,
-        com.chiiii5640.thsrapp.core.model.TrainServiceState.DwellingAtStation,
-        -> tokens.colors.warningOrange
-        com.chiiii5640.thsrapp.core.model.TrainServiceState.ArrivedDestination -> tokens.colors.successGreen
-        else -> tokens.colors.primaryBlue
-    }
-    Surface(
-        color = tint.copy(alpha = 0.10f),
-        shape = RoundedCornerShape(tokens.radii.chipRadius),
-        tonalElevation = 0.dp,
-    ) {
-        Row(
-            modifier = Modifier.padding(
-                horizontal = tokens.spacing.spacing8,
-                vertical = 5.dp,
-            ),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(5.dp)
-                    .background(tint, CircleShape),
-            )
-            Text(
-                text = option.compactStatusLabel(),
-                color = tint,
-                style = tokens.typography.captionStrong,
-            )
-        }
     }
 }
 
@@ -430,7 +400,7 @@ private fun TimeStationColumn(
         )
         Text(
             text = station,
-            color = tokens.colors.textTertiary.copy(alpha = 0.82f),
+            color = tokens.colors.textSecondary.copy(alpha = tokens.opacity.subduedText),
             style = tokens.typography.cardRoute,
         )
     }
@@ -524,17 +494,17 @@ private fun SeatStatusSourceRow(
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.Top,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(
             text = source,
-            color = tokens.colors.textTertiary,
+            color = tokens.colors.textSecondary.copy(alpha = tokens.opacity.mutedText),
             style = tokens.typography.captionStrong,
             modifier = Modifier.width(if (layoutProfile.isLargeFont) 34.dp else 28.dp),
         )
         Row(
             modifier = Modifier.weight(1f),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             SeatStatusText(
                 title = "標準",
@@ -569,7 +539,7 @@ private fun SeatStatusText(
         )
         Text(
             text = "$title ${status.detailLabel()}",
-            color = tokens.colors.textTertiary.copy(alpha = 0.90f),
+            color = tokens.colors.textSecondary.copy(alpha = tokens.opacity.subduedText),
             style = tokens.typography.caption,
         )
     }
@@ -579,7 +549,7 @@ private fun SeatStatusText(
 private fun DiscountBadge(label: String) {
     val tokens = ThsrDesignTokens
     Surface(
-        color = tokens.colors.elevatedSurfaceColor.copy(alpha = 0.56f),
+        color = tokens.colors.elevatedSurfaceColor.copy(alpha = 0.42f),
         shape = RoundedCornerShape(tokens.radii.chipRadius),
         tonalElevation = 0.dp,
     ) {
@@ -611,7 +581,7 @@ private fun FooterAction(
             onClick = onClick,
         ),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(tokens.spacing.spacing4),
+        horizontalArrangement = Arrangement.spacedBy(tokens.trainCard.horizontalActionSpacing),
     ) {
         leading?.invoke()
         Text(
@@ -637,36 +607,36 @@ private fun trainNotificationVisualState(
     return when {
         highlightNotification -> TrainNotificationVisualState(
             actionTint = actionTint,
-            cardTint = Color(0xFF2B2117),
-            strokeTint = colors.warningOrange.copy(alpha = 0.18f),
+            cardTint = ThsrDesignTokens.trainCard.notificationHighlightBackground,
+            strokeTint = ThsrDesignTokens.trainCard.notificationHighlightBorder,
             shouldShowBadge = isNotificationScheduled,
         )
 
         isNotificationScheduled -> TrainNotificationVisualState(
             actionTint = actionTint,
-            cardTint = Color(0xFF18211B),
-            strokeTint = colors.successGreen.copy(alpha = 0.14f),
+            cardTint = ThsrDesignTokens.trainCard.notificationScheduledBackground,
+            strokeTint = ThsrDesignTokens.trainCard.notificationScheduledBorder,
             shouldShowBadge = true,
         )
 
         expanded -> TrainNotificationVisualState(
             actionTint = actionTint,
-            cardTint = Color(0xFF182332),
-            strokeTint = colors.primaryBlue.copy(alpha = 0.16f),
+            cardTint = ThsrDesignTokens.trainCard.expandedBackground,
+            strokeTint = ThsrDesignTokens.trainCard.expandedBorder,
             shouldShowBadge = false,
         )
 
         else -> TrainNotificationVisualState(
             actionTint = actionTint,
-            cardTint = Color(0xFF17191E),
-            strokeTint = colors.outlineColor.copy(alpha = 0.54f),
+            cardTint = ThsrDesignTokens.trainCard.collapsedBackground,
+            strokeTint = ThsrDesignTokens.trainCard.collapsedBorder,
             shouldShowBadge = false,
         )
     }
 }
 
 private fun BookingStatus.label(): String = when (this) {
-    BookingStatus.Available -> "可訂位"
+    BookingStatus.Available -> "已開放"
     is BookingStatus.NotYetOpen -> "未開放，預估 ${openingDate.format(bookingStatusDateFormatter)}"
     BookingStatus.Closed -> "已過訂位期限"
 }
@@ -685,10 +655,10 @@ private fun SeatStatus.color(): Color = when (this) {
 }
 
 private fun SeatStatus.detailLabel(): String = when (this) {
-    SeatStatus.Unknown -> "未列入看板"
+    SeatStatus.Unknown -> "暫無資料"
     SeatStatus.Available -> "座位有餘"
     SeatStatus.Limited -> "座位有限"
-    SeatStatus.SoldOut -> "TDX 顯示無座"
+    SeatStatus.SoldOut -> "暫無座位"
 }
 
 private fun com.chiiii5640.thsrapp.core.model.SourceStatus.cardSourceLabel(): String = when (state) {
