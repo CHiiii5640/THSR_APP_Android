@@ -169,17 +169,13 @@ class FeedDiscountService(
         val destinationTime = rule.stops[query.destination.localName]?.let(LocalTime::parse) ?: return null
         if (originTime.isBefore(query.departureAfter)) return null
 
-        val stations = Station.entries.toList()
-        val originIndex = stations.indexOf(query.origin)
-        val destinationIndex = stations.indexOf(query.destination)
-        if (originIndex == -1 || destinationIndex == -1 || originIndex == destinationIndex) return null
-
-        val traversedStations = if (originIndex < destinationIndex) {
-            stations.subList(originIndex, destinationIndex + 1)
-        } else {
-            stations.subList(destinationIndex, originIndex + 1).reversed()
+        val orderedStations = when (rule.direction) {
+            "南下" -> Station.entries.sortedBy { it.sortIndex }
+            "北上" -> Station.entries.sortedByDescending { it.sortIndex }
+            else -> return null
         }
-        val stops = traversedStations.mapNotNull { station ->
+
+        val stops = orderedStations.mapNotNull { station ->
             rule.stops[station.localName]?.let(LocalTime::parse)?.let { time ->
                 TimelineStop(station = station, arrivalTime = time, departureTime = time)
             }

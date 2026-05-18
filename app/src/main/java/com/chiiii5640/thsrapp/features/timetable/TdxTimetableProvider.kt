@@ -133,6 +133,6 @@ private fun List<TdxStopTime>.toTimetableTrain(
         trainNo = trainNo,
         departureTime = originStop.departureTime ?: originStop.arrivalTime ?: return null,
         arrivalTime = destinationStop.arrivalTime ?: destinationStop.departureTime ?: return null,
-        stops = stops.subList(originIndex, destinationIndex + 1),
+        stops = stops,
     )
 }

@@ -84,7 +84,14 @@ data class TimelineStop(
     val station: Station,
     val arrivalTime: LocalTime?,
     val departureTime: LocalTime?,
+    val role: TimelineStopRole = TimelineStopRole.Intermediate,
 )
+
+enum class TimelineStopRole {
+    Origin,
+    Intermediate,
+    Destination,
+}
 
 sealed class BookingStatus {
     object Available : BookingStatus()
@@ -155,4 +162,70 @@ private val SeatStatus.rank: Int
         SeatStatus.SoldOut -> 1
         SeatStatus.Limited -> 2
         SeatStatus.Available -> 3
+    }
+
+val TrainOption.timelineStops: List<TimelineStop>
+    get() {
+        val southbound = origin.sortIndex < destination.sortIndex
+        val orderedStops = stops
+            .filter { stop ->
+                if (southbound) {
+                    stop.station.sortIndex <= destination.sortIndex
+                } else {
+                    stop.station.sortIndex >= destination.sortIndex
+                }
+            }
+            .sortedBy { stop ->
+                if (southbound) stop.station.sortIndex else -stop.station.sortIndex
+            }
+            .toMutableList()
+
+        if (orderedStops.none { it.station == origin }) {
+            val originStop = TimelineStop(
+                station = origin,
+                arrivalTime = null,
+                departureTime = departureTime,
+            )
+            val insertionIndex = orderedStops.indexOfFirst { stop ->
+                if (southbound) {
+                    stop.station.sortIndex > origin.sortIndex
+                } else {
+                    stop.station.sortIndex < origin.sortIndex
+                }
+            }.takeIf { it >= 0 } ?: orderedStops.size
+            orderedStops.add(insertionIndex, originStop)
+        }
+
+        if (orderedStops.none { it.station == destination }) {
+            val destinationStop = TimelineStop(
+                station = destination,
+                arrivalTime = arrivalTime,
+                departureTime = null,
+            )
+            val insertionIndex = orderedStops.indexOfFirst { stop ->
+                if (southbound) {
+                    stop.station.sortIndex > destination.sortIndex
+                } else {
+                    stop.station.sortIndex < destination.sortIndex
+                }
+            }.takeIf { it >= 0 } ?: orderedStops.size
+            orderedStops.add(insertionIndex, destinationStop)
+        }
+
+        return orderedStops.map { stop ->
+            when (stop.station) {
+                origin -> stop.copy(
+                    departureTime = stop.departureTime ?: departureTime,
+                    role = TimelineStopRole.Origin,
+                )
+
+                destination -> stop.copy(
+                    arrivalTime = stop.arrivalTime ?: arrivalTime,
+                    departureTime = null,
+                    role = TimelineStopRole.Destination,
+                )
+
+                else -> stop.copy(role = TimelineStopRole.Intermediate)
+            }
+        }
     }
