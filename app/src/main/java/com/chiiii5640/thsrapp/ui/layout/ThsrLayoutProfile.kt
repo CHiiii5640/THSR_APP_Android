@@ -49,13 +49,13 @@ fun rememberThsrLayoutProfile(): ThsrLayoutProfile {
                 isLargeFont = isLargeFont,
                 contentMaxWidth = 760.dp,
                 contentHorizontalPadding = 24.dp,
-                cardContentHorizontalPadding = 20.dp,
+                cardContentHorizontalPadding = 18.dp,
                 sheetHorizontalPadding = 32.dp,
                 sheetTopPadding = 28.dp,
                 sectionSpacing = 14.dp,
-                timelineNodeWidth = 56.dp,
-                timelineLabelWidth = 54.dp,
-                timelineSegmentUnitWidth = 44.dp,
+                timelineNodeWidth = 48.dp,
+                timelineLabelWidth = 46.dp,
+                timelineSegmentUnitWidth = 34.dp,
             )
 
             widthSizeClass == WindowWidthSizeClass.Medium || widthDp >= 448.dp -> ThsrLayoutProfile(
@@ -64,13 +64,13 @@ fun rememberThsrLayoutProfile(): ThsrLayoutProfile {
                 isLargeFont = isLargeFont,
                 contentMaxWidth = 640.dp,
                 contentHorizontalPadding = 18.dp,
-                cardContentHorizontalPadding = 18.dp,
+                cardContentHorizontalPadding = 16.dp,
                 sheetHorizontalPadding = 26.dp,
                 sheetTopPadding = 26.dp,
                 sectionSpacing = 12.dp,
-                timelineNodeWidth = 52.dp,
-                timelineLabelWidth = 50.dp,
-                timelineSegmentUnitWidth = 40.dp,
+                timelineNodeWidth = 44.dp,
+                timelineLabelWidth = 42.dp,
+                timelineSegmentUnitWidth = 32.dp,
             )
 
             widthDp >= 412.dp -> ThsrLayoutProfile(
@@ -79,13 +79,13 @@ fun rememberThsrLayoutProfile(): ThsrLayoutProfile {
                 isLargeFont = isLargeFont,
                 contentMaxWidth = 560.dp,
                 contentHorizontalPadding = 16.dp,
-                cardContentHorizontalPadding = if (isLargeFont) 14.dp else 16.dp,
+                cardContentHorizontalPadding = if (isLargeFont) 12.dp else 14.dp,
                 sheetHorizontalPadding = 22.dp,
                 sheetTopPadding = 24.dp,
                 sectionSpacing = 12.dp,
-                timelineNodeWidth = 50.dp,
-                timelineLabelWidth = 48.dp,
-                timelineSegmentUnitWidth = 38.dp,
+                timelineNodeWidth = 42.dp,
+                timelineLabelWidth = 40.dp,
+                timelineSegmentUnitWidth = 28.dp,
             )
 
             else -> ThsrLayoutProfile(
@@ -94,13 +94,13 @@ fun rememberThsrLayoutProfile(): ThsrLayoutProfile {
                 isLargeFont = isLargeFont,
                 contentMaxWidth = 520.dp,
                 contentHorizontalPadding = 14.dp,
-                cardContentHorizontalPadding = if (isLargeFont) 12.dp else 14.dp,
+                cardContentHorizontalPadding = if (isLargeFont) 10.dp else 12.dp,
                 sheetHorizontalPadding = 18.dp,
                 sheetTopPadding = 22.dp,
                 sectionSpacing = 10.dp,
-                timelineNodeWidth = 46.dp,
-                timelineLabelWidth = 44.dp,
-                timelineSegmentUnitWidth = 34.dp,
+                timelineNodeWidth = 40.dp,
+                timelineLabelWidth = 38.dp,
+                timelineSegmentUnitWidth = 26.dp,
             )
         }
     }
