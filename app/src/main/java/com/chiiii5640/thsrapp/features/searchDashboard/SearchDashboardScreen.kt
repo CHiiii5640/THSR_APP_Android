@@ -702,7 +702,7 @@ private fun DataSourceSection(result: SearchResult) {
             }
         }
         Text(
-            text = "優先使用 TDX，缺資料時才退回快取或 fallback。",
+            text = "班次、座位與優惠會依可用資料自動更新。",
             color = tokens.colors.textSecondary,
             style = tokens.typography.caption,
             modifier = Modifier.padding(horizontal = tokens.spacing.spacing4),
@@ -1004,17 +1004,15 @@ private fun SourceStatus.stateLabel(): String = when (state) {
 }
 
 private fun SourceStatus.iosTitle(): String = when {
-    label.contains("DailyTimetable", ignoreCase = true) && state == SourceState.Live -> "TDX DailyTimetable live"
-    label.contains("DailyTimetable", ignoreCase = true) && state == SourceState.Cache -> "TDX 高鐵每日時刻表（快取）"
-    label.contains("GeneralTimetable", ignoreCase = true) -> "TDX GeneralTimetable fallback"
-    label.contains("persisted", ignoreCase = true) -> "本機保存 GeneralTimetable"
-    label.contains("seat availability live", ignoreCase = true) -> "TDX seat availability live"
-    label.contains("seat availability cache", ignoreCase = true) -> "TDX seat availability（快取）"
-    label.contains("seat APIs skipped", ignoreCase = true) -> "座位 API 已略過"
-    label.contains("cooldown", ignoreCase = true) -> "座位 API 冷卻中"
-    label.contains("discount feed", ignoreCase = true) -> "GitHub Pages discount feed"
-    label.contains("timetable fallback", ignoreCase = true) -> "Discount feed fallback timetable"
-    label.contains("unavailable", ignoreCase = true) -> "不可用"
+    label.contains("DailyTimetable", ignoreCase = true) -> "TDX 高鐵每日時刻表"
+    label.contains("GeneralTimetable", ignoreCase = true) -> "TDX 高鐵每日時刻表"
+    label.contains("persisted", ignoreCase = true) -> "高鐵班次資料"
+    label.contains("seat availability", ignoreCase = true) -> "TDX 座位狀態"
+    label.contains("seat APIs skipped", ignoreCase = true) -> "座位狀態"
+    label.contains("cooldown", ignoreCase = true) -> "座位狀態"
+    label.contains("discount feed", ignoreCase = true) -> "優惠資訊"
+    label.contains("timetable fallback", ignoreCase = true) -> "高鐵班次資料"
+    label.contains("unavailable", ignoreCase = true) -> "資料狀態"
     else -> label
 }
 
