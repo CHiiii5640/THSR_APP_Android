@@ -24,6 +24,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -322,6 +323,9 @@ fun StopTimeline(
     val showsVisibleLiveActivity = remember(liveState, originStopIndex) {
         liveState?.hasVisibleLiveActivity(originStopIndex) ?: false
     }
+    var initialVisibleAnchorStopIndex by remember(option.trainNo, option.travelDate, option.origin, option.destination) {
+        mutableIntStateOf(Int.MIN_VALUE)
+    }
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -345,13 +349,27 @@ fun StopTimeline(
                 )
             }
             val anchorStopIndex = originStopIndex.coerceIn(0, stops.lastIndex)
+            val currentVisibleAnchorStopIndex = (
+                if (showsVisibleLiveActivity) {
+                    liveState?.visibleAnchorStopIndex()
+                        ?.coerceAtLeast(originStopIndex)
+                } else {
+                    originStopIndex
+                }
+                )?.coerceIn(originStopIndex, stops.lastIndex)
+                ?: originStopIndex
             val focusedSegmentIndex = (
                 liveState?.focusedSegmentIndex(originStopIndex)
                     ?: originStopIndex
                 ).coerceIn(0, layoutMetrics.segments.lastIndex)
             val maxOffsetPx = layoutMetrics.maxOffsetPx(viewportWidthPx)
-            val initialOffsetPx = remember(anchorStopIndex, maxOffsetPx, layoutMetrics.totalWidthPx) {
-                (layoutMetrics.nodeCenterPx(anchorStopIndex) - layoutMetrics.leadingInsetPx)
+            val resolvedInitialVisibleAnchorStopIndex = if (initialVisibleAnchorStopIndex == Int.MIN_VALUE) {
+                currentVisibleAnchorStopIndex
+            } else {
+                initialVisibleAnchorStopIndex.coerceIn(originStopIndex, stops.lastIndex)
+            }
+            val initialOffsetPx = remember(resolvedInitialVisibleAnchorStopIndex, maxOffsetPx, layoutMetrics.totalWidthPx) {
+                (layoutMetrics.nodeCenterPx(resolvedInitialVisibleAnchorStopIndex) - layoutMetrics.leadingInsetPx)
                     .coerceIn(0f, maxOffsetPx)
             }
             val revealThresholdPx = with(density) { tokens.timeline.revealThreshold.toPx() }
@@ -371,12 +389,19 @@ fun StopTimeline(
             var backwardPullPx by remember(option.trainNo, option.travelDate, layoutProfile) {
                 mutableFloatStateOf(0f)
             }
-            val animatedSettledOffsetPx by animateFloatAsState(
-                targetValue = settledOffsetPx,
-                animationSpec = spring(dampingRatio = 0.88f, stiffness = 420f),
-                label = "timeline-snap-back",
-            )
-            val visibleOffsetPx = if (isDragging) draggedOffsetPx else animatedSettledOffsetPx
+            val visibleOffsetPx = if (isDragging) draggedOffsetPx else settledOffsetPx
+
+            LaunchedEffect(
+                option.trainNo,
+                option.travelDate,
+                option.origin,
+                option.destination,
+                currentVisibleAnchorStopIndex,
+            ) {
+                if (initialVisibleAnchorStopIndex == Int.MIN_VALUE) {
+                    initialVisibleAnchorStopIndex = currentVisibleAnchorStopIndex
+                }
+            }
 
             LaunchedEffect(initialOffsetPx, maxOffsetPx, option.trainNo, option.travelDate, layoutProfile) {
                 previousStopsRevealed = false
@@ -1014,9 +1039,10 @@ private fun DrawScope.drawTimelineMarker(
     val headWidthPx = marker.motion.headWidthPx * scale
     val headHeightPx = marker.motion.headHeightPx * (1f + (0.008f * wave))
     val tailWidthPx = marker.motion.tailWidthPx
-    val centerYPx = canvasMetrics.markerTopPx + (headHeightPx / 2f)
+    val markerVerticalCorrectionPx = 6.dp.toPx()
+    val centerYPx = canvasMetrics.trackYPx - markerVerticalCorrectionPx
     val headLeftPx = marker.centerXPx - (headWidthPx / 2f)
-    val headTopPx = canvasMetrics.markerTopPx
+    val headTopPx = centerYPx - (headHeightPx / 2f)
     val tailHeightPx = headHeightPx * 0.70f
     val tailTopPx = centerYPx - (tailHeightPx / 2f)
     val arrivalFade = 1f - (0.24f * marker.arrivalTransfer)
@@ -1266,6 +1292,15 @@ private class TimelineLiveState private constructor(
             return max(originStopIndex, stops.lastIndex - 1)
         }
         return originStopIndex
+    }
+
+    fun visibleAnchorStopIndex(): Int {
+        activeStoppedStationIndex()?.let { return it }
+        activeTransitSegmentIndex()?.let { return it }
+        if (!now.isBefore(lastArrival)) {
+            return stops.lastIndex
+        }
+        return 0
     }
 
     fun hasVisibleLiveActivity(anchorStopIndex: Int): Boolean {
