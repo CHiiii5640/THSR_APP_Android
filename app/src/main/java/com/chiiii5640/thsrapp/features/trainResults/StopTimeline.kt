@@ -601,13 +601,12 @@ fun StopTimeline(
                         frameNanos = frame.frameNanos,
                         hiddenBeforeIndex = hiddenBeforeIndex,
                         previousStopsRevealed = previousStopsRevealed,
-                        routeActivityBeforeOrigin = routeActivityBeforeOrigin,
                         showsLiveProgress = shouldShowRailProgress,
                     )
 
                     stops.forEachIndexed { index, stop ->
                         val nodeStateSource = when {
-                            routeActivityBeforeOrigin && index < hiddenBeforeIndex -> routeLiveState
+                            previousStopsRevealed && index < hiddenBeforeIndex -> routeLiveState
                             else -> odLiveState
                         }
                         TimelineNode(
@@ -699,11 +698,11 @@ private fun TimelineRailCanvas(
             }
 
             val segmentState = when {
-                routeActivityBeforeOrigin && segment.index < hiddenBeforeIndex -> revealedRouteLiveState
+                previousStopsRevealed && segment.index < hiddenBeforeIndex -> revealedRouteLiveState
                 else -> liveState
             }
             val segmentShowsProgress = when {
-                routeActivityBeforeOrigin && segment.index < hiddenBeforeIndex -> true
+                previousStopsRevealed && segment.index < hiddenBeforeIndex -> true
                 else -> showsRailProgress
             }
             val segmentOpacity = if (segment.index == focusedSegmentIndex) 1f else 0.82f
@@ -804,7 +803,6 @@ private fun TimelineParticleCanvas(
     frameNanos: Long,
     hiddenBeforeIndex: Int,
     previousStopsRevealed: Boolean,
-    routeActivityBeforeOrigin: Boolean,
     showsLiveProgress: Boolean,
 ) {
     if (liveState == null && revealedRouteLiveState == null) return
@@ -817,11 +815,11 @@ private fun TimelineParticleCanvas(
             }
 
             val segmentState = when {
-                routeActivityBeforeOrigin && segment.index < hiddenBeforeIndex -> revealedRouteLiveState
+                previousStopsRevealed && segment.index < hiddenBeforeIndex -> revealedRouteLiveState
                 else -> liveState
             } ?: return@forEach
             val segmentShowsProgress = when {
-                routeActivityBeforeOrigin && segment.index < hiddenBeforeIndex -> true
+                previousStopsRevealed && segment.index < hiddenBeforeIndex -> true
                 else -> showsLiveProgress
             }
             if (!segmentShowsProgress) {
