@@ -10,11 +10,6 @@
 - 若是大型改動、跨 feature 重構、資料流搬移，先規劃再實作。
 - 回答時要明確說出：原本 Android 問題點、對應的 iOS 目標行為、這次修正內容、驗證方式。
 
-## Build and verification
-- 進入本機環境前先 `source ~/.zshrc`。
-- 預設只做 compile 驗證，不主動跑測試；優先使用 `./gradlew assembleDebug`。
-- 真的遇到無法判斷的邏輯問題、解析邊界、回歸風險時，再跑對應最小測試範圍。
-- 若命令因權限或沙盒限制失敗，直接申請提權，不要繞路。
 
 ## iOS-first parity rules
 - 先讀 iOS，再改 Android；不要在沒看 iOS 最新實作前直接提出 Android-only 解法。
@@ -70,14 +65,6 @@
 - 測試檔命名與正式檔一一對應，使用 `<Subject>NameTest.kt`，例如 `SearchDashboardServiceTest.kt`。
 - 不要使用 `New`、`Temp`、`Util2`、`FinalVersion` 這類暫時命名。
 
-## Behavior rules to preserve
-- 搜尋結果必須保留完整結果集，不可默默裁掉最後班次。
-- 最快車篩選、跨午夜時間計算、方向判斷、折扣套用，需對齊 iOS 語意，不做 Android 自行簡化版。
-- seat / timetable fallback 可以補位，但不能掩蓋官方資料其實成功或失敗的邊界。
-- force refresh 必須是真的 refresh，不可被過度快取吃掉。
-- timeline 應以 phase-driven state 為主，不只是一條線性進度條。
-- station 應大多維持靜態，train marker 才是主要動態；避免過度特效、閃爍、粒子感。
-- 若 iOS 使用實際 scroll / phase 模型，Android 不要退回手勢模擬假滾動或只用 offset 偽裝。
 
 ## Design parity rules
 - 優先對齊資訊層級、區塊結構、狀態呈現與文案，再處理 Android 視覺微差。
@@ -85,7 +72,3 @@
 - 若 iOS 某段設計是為了解釋狀態，Android 應保留同一個語意目的，不可只留下表面外觀。
 - 沒有明確理由，不新增 Android 專屬裝飾、提示詞、次要 badge。
 
-## Commit rule
-- 完成且驗證後優先協助 commit。
-- commit message 要清楚寫出這次對齊了哪個 iOS 行為或修掉哪個 Android 偏差。
-- 若 repo 內已有使用者未完成修改，不可回退它們；只 stage / commit 本次相關檔案。
