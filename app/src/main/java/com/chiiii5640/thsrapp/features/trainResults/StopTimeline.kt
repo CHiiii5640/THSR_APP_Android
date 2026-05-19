@@ -2,6 +2,8 @@ package com.chiiii5640.thsrapp.features.trainResults
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.horizontalScroll
@@ -24,7 +26,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -40,6 +41,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -77,8 +79,8 @@ private data class TimelineFrame(
 
 private enum class TimelineTrainPhase(val cycleSeconds: Float) {
     Departing(2.15f),
-    InTransit(2.45f),
-    Approaching(2.7f),
+    InTransit(2.55f),
+    Approaching(2.9f),
     Docked(2.8f),
 }
 
@@ -86,9 +88,9 @@ private enum class TimelineSemanticPhase {
     NotDeparted,
     AboutToDepart,
     Departing,
-    Departed,
     InTransit,
     Approaching,
+    Arriving,
     Stopped,
     Arrived,
 }
@@ -366,11 +368,16 @@ fun StopTimeline(
             ?: 0
     }
     val statusPill = remember(liveState) { liveState?.statusPill() }
-    val showsRailProgress = remember(liveState) { liveState?.showsRailProgress() ?: false }
-    var initialAnchorStopIndex by remember(option.trainNo, option.travelDate, option.origin, option.destination) {
-        mutableIntStateOf(Int.MIN_VALUE)
-    }
     val scrollState = rememberScrollState()
+    var previousStopsRevealed by remember(option.trainNo, option.travelDate, option.origin, option.destination) {
+        mutableStateOf(false)
+    }
+    var revealDragDistancePx by remember(option.trainNo, option.travelDate, option.origin, option.destination) {
+        mutableStateOf(0f)
+    }
+    var isUserDragging by remember(option.trainNo, option.travelDate, option.origin, option.destination) {
+        mutableStateOf(false)
+    }
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -384,7 +391,9 @@ fun StopTimeline(
                 .height(visualMetrics.viewportHeight)
                 .clipToBounds(),
         ) {
-            val viewportWidthPx = with(density) { maxWidth.toPx() }
+            val timelineHorizontalPaddingPx = with(density) { 6.dp.toPx() }
+            val viewportWidthPx = (with(density) { maxWidth.toPx() } - (timelineHorizontalPaddingPx * 2f))
+                .coerceAtLeast(0f)
             val layoutMetrics = remember(stops, density, layoutProfile, visualMetrics, viewportWidthPx) {
                 buildTimelineLayout(
                     stops = stops,
@@ -395,52 +404,51 @@ fun StopTimeline(
                 )
             }
             val anchorStopIndex = originStopIndex.coerceIn(0, stops.lastIndex)
-            val currentVisibleAnchorStopIndex = (
-                liveState?.defaultAnchorStopIndex(anchorStopIndex)
-                    ?: anchorStopIndex
-                ).coerceIn(anchorStopIndex, stops.lastIndex)
-            val hiddenBeforeIndex = if (initialAnchorStopIndex == Int.MIN_VALUE) {
-                currentVisibleAnchorStopIndex
-            } else {
-                initialAnchorStopIndex.coerceIn(anchorStopIndex, stops.lastIndex)
-            }
+            val hiddenBeforeIndex = anchorStopIndex
             val focusedSegmentIndex = (
-                liveState?.focusedSegmentIndex(hiddenBeforeIndex)
-                    ?: hiddenBeforeIndex
+                liveState?.focusedSegmentIndex(anchorStopIndex)
+                    ?: anchorStopIndex
                 ).coerceIn(0, layoutMetrics.segments.lastIndex)
             val maxOffsetPx = layoutMetrics.maxOffsetPx(viewportWidthPx)
-            val initialOffsetPx = remember(hiddenBeforeIndex, maxOffsetPx, viewportWidthPx, layoutMetrics.totalWidthPx) {
-                val anchorCenterPx = layoutMetrics.nodeCenterPx(hiddenBeforeIndex)
-                (anchorCenterPx - (viewportWidthPx * 0.46f))
+            val initialOffsetPx = remember(anchorStopIndex, maxOffsetPx, layoutMetrics.nodeCentersPx, layoutMetrics.leadingInsetPx) {
+                val anchorCenterPx = layoutMetrics.nodeCenterPx(anchorStopIndex)
+                (anchorCenterPx - layoutMetrics.leadingInsetPx)
                     .coerceIn(0f, maxOffsetPx)
             }
+            val contentWidthPx = remember(layoutMetrics.totalWidthPx, viewportWidthPx, initialOffsetPx) {
+                max(layoutMetrics.totalWidthPx, viewportWidthPx + initialOffsetPx)
+            }
             val revealThresholdPx = with(density) { tokens.timeline.revealThreshold.toPx() }
+            val shouldShowVisibleLiveActivity = previousStopsRevealed ||
+                (liveState?.hasVisibleLiveActivity(anchorStopIndex) ?: false)
+            val lockedOffsetPx = initialOffsetPx
 
-            var previousStopsRevealed by remember(option.trainNo, option.travelDate, option.origin, option.destination) {
-                mutableStateOf(hiddenBeforeIndex <= anchorStopIndex)
-            }
-
-            LaunchedEffect(
-                option.trainNo,
-                option.travelDate,
-                option.origin,
-                option.destination,
-                currentVisibleAnchorStopIndex,
-            ) {
-                if (initialAnchorStopIndex == Int.MIN_VALUE) {
-                    initialAnchorStopIndex = currentVisibleAnchorStopIndex
-                }
-            }
-
-            LaunchedEffect(initialOffsetPx, option.trainNo, option.travelDate, option.origin, option.destination) {
-                previousStopsRevealed = hiddenBeforeIndex <= anchorStopIndex
+            LaunchedEffect(anchorStopIndex, initialOffsetPx, option.trainNo, option.travelDate, option.origin, option.destination) {
+                previousStopsRevealed = anchorStopIndex <= 0
+                revealDragDistancePx = 0f
+                isUserDragging = false
                 scrollState.scrollTo(initialOffsetPx.roundToInt())
             }
 
-            LaunchedEffect(scrollState.value, hiddenBeforeIndex, initialOffsetPx) {
-                val revealOffset = (initialOffsetPx - revealThresholdPx).roundToInt().coerceAtLeast(0)
-                if (!previousStopsRevealed && hiddenBeforeIndex > anchorStopIndex && scrollState.value <= revealOffset) {
-                    previousStopsRevealed = true
+            LaunchedEffect(scrollState.value, isUserDragging, revealDragDistancePx, previousStopsRevealed, lockedOffsetPx, anchorStopIndex) {
+                val lockedOffset = lockedOffsetPx.roundToInt()
+                if (!previousStopsRevealed && anchorStopIndex > 0 && scrollState.value < lockedOffset) {
+                    if (isUserDragging && revealDragDistancePx >= revealThresholdPx) {
+                        val revealOffset = (lockedOffsetPx - revealDragDistancePx)
+                            .roundToInt()
+                            .coerceAtLeast(0)
+                        previousStopsRevealed = true
+                        scrollState.scrollTo(revealOffset)
+                    } else {
+                        scrollState.scrollTo(lockedOffset)
+                    }
+                }
+            }
+
+            LaunchedEffect(isUserDragging, previousStopsRevealed, lockedOffsetPx, anchorStopIndex) {
+                val lockedOffset = lockedOffsetPx.roundToInt()
+                if (!isUserDragging && !previousStopsRevealed && anchorStopIndex > 0 && scrollState.value != lockedOffset) {
+                    scrollState.animateScrollTo(lockedOffset)
                 }
             }
 
@@ -448,15 +456,48 @@ fun StopTimeline(
                 modifier = Modifier
                     .fillMaxWidth()
                     .fillMaxHeight()
+                    .padding(horizontal = 6.dp)
                     .clipToBounds()
+                    .pointerInput(anchorStopIndex, previousStopsRevealed, lockedOffsetPx) {
+                        if (anchorStopIndex <= 0 || previousStopsRevealed) return@pointerInput
+
+                        awaitEachGesture {
+                            val down = awaitFirstDown(requireUnconsumed = false)
+                            isUserDragging = true
+                            revealDragDistancePx = 0f
+                            var lastX = down.position.x
+
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                val change = event.changes.firstOrNull { it.id == down.id }
+                                    ?: event.changes.firstOrNull()
+                                    ?: break
+                                if (!change.pressed) break
+
+                                val deltaX = change.position.x - lastX
+                                lastX = change.position.x
+                                if (deltaX > 0f && scrollState.value.toFloat() <= lockedOffsetPx.roundToInt().toFloat() + 1f) {
+                                    revealDragDistancePx = (revealDragDistancePx + deltaX)
+                                        .coerceAtMost(revealThresholdPx * 1.6f)
+                                } else if (deltaX < 0f) {
+                                    revealDragDistancePx = 0f
+                                }
+                            }
+
+                            isUserDragging = false
+                            if (!previousStopsRevealed) {
+                                revealDragDistancePx = 0f
+                            }
+                        }
+                    }
                     .horizontalScroll(
                         state = scrollState,
-                        enabled = layoutMetrics.totalWidthPx > viewportWidthPx,
+                        enabled = contentWidthPx > viewportWidthPx,
                     ),
             ) {
                 Box(
                     modifier = Modifier
-                        .width(with(density) { layoutMetrics.totalWidthPx.toDp() })
+                        .width(with(density) { contentWidthPx.toDp() })
                         .fillMaxHeight(),
                 ) {
                     TimelineRailCanvas(
@@ -467,14 +508,24 @@ fun StopTimeline(
                         hiddenBeforeIndex = hiddenBeforeIndex,
                         previousStopsRevealed = previousStopsRevealed,
                         focusedSegmentIndex = focusedSegmentIndex,
-                        showsLiveProgress = showsRailProgress,
+                        showsLiveProgress = shouldShowVisibleLiveActivity,
+                    )
+
+                    TimelineParticleCanvas(
+                        layoutMetrics = layoutMetrics,
+                        liveState = liveState,
+                        canvasMetrics = canvasMetrics,
+                        frameNanos = frame.frameNanos,
+                        hiddenBeforeIndex = hiddenBeforeIndex,
+                        previousStopsRevealed = previousStopsRevealed,
+                        showsLiveProgress = shouldShowVisibleLiveActivity,
                     )
 
                     stops.forEachIndexed { index, stop ->
                         TimelineNode(
                             stop = stop,
                             centerXPx = layoutMetrics.nodeCenterPx(index),
-                            totalWidthPx = layoutMetrics.totalWidthPx,
+                            totalWidthPx = contentWidthPx,
                             state = liveState?.nodeState(index) ?: TimelineNodeState.Station,
                             activeTransfer = liveState?.nodeActivationProgress(index) ?: 0f,
                             frameNanos = frame.frameNanos,
@@ -554,7 +605,6 @@ private fun TimelineRailCanvas(
 ) {
     val tokens = ThsrDesignTokens
     Canvas(modifier = Modifier.fillMaxWidth().fillMaxHeight()) {
-        val baseTrackColor = tokens.colors.primaryBlue.copy(alpha = 0.16f)
         val idleGlowColor = tokens.colors.primaryBlue.copy(alpha = 0.06f)
         layoutMetrics.segments.forEach { segment ->
             if (!previousStopsRevealed && segment.index < hiddenBeforeIndex) {
@@ -563,7 +613,7 @@ private fun TimelineRailCanvas(
 
             val segmentOpacity = if (segment.index == focusedSegmentIndex) 1f else 0.82f
             drawRoundRect(
-                color = baseTrackColor.copy(alpha = baseTrackColor.alpha * segmentOpacity),
+                color = Color(0xFF2E4056).copy(alpha = 0.50f * segmentOpacity),
                 topLeft = Offset(
                     x = segment.startCenterXPx,
                     y = canvasMetrics.trackYPx - (canvasMetrics.baseLineHeightPx / 2f),
@@ -585,9 +635,9 @@ private fun TimelineRailCanvas(
             drawRoundRect(
                 brush = Brush.horizontalGradient(
                     colors = listOf(
-                        tailAccent.copy(alpha = 0.24f * segmentOpacity),
-                        tailAccent.copy(alpha = 0.34f * segmentOpacity),
-                        accent.copy(alpha = 0.54f * segmentOpacity),
+                        tailAccent.copy(alpha = 0.20f * segmentOpacity),
+                        tailAccent.copy(alpha = 0.30f * segmentOpacity),
+                        accent.copy(alpha = 0.46f * segmentOpacity),
                         accent.copy(alpha = 0.82f * segmentOpacity),
                     ),
                     startX = segment.startCenterXPx,
@@ -602,7 +652,16 @@ private fun TimelineRailCanvas(
             )
 
             drawRoundRect(
-                color = accent.copy(alpha = 0.10f * segmentOpacity),
+                brush = Brush.horizontalGradient(
+                    colors = listOf(
+                        Color.Transparent,
+                        accent.copy(alpha = 0.10f * segmentOpacity),
+                        accent.copy(alpha = 0.24f * segmentOpacity),
+                        accent.copy(alpha = 0.40f * segmentOpacity),
+                    ),
+                    startX = segment.startCenterXPx,
+                    endX = segment.startCenterXPx + fillWidthPx,
+                ),
                 topLeft = Offset(
                     x = segment.startCenterXPx,
                     y = canvasMetrics.trackYPx - (canvasMetrics.activeLineHeightPx / 2f) - 0.8f,
@@ -631,6 +690,84 @@ private fun TimelineRailCanvas(
                     marker = marker,
                     canvasMetrics = canvasMetrics,
                     frameNanos = frameNanos,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TimelineParticleCanvas(
+    layoutMetrics: TimelineLayoutMetrics,
+    liveState: TimelineLiveState?,
+    canvasMetrics: TimelineCanvasMetrics,
+    frameNanos: Long,
+    hiddenBeforeIndex: Int,
+    previousStopsRevealed: Boolean,
+    showsLiveProgress: Boolean,
+) {
+    if (liveState == null || !showsLiveProgress) return
+
+    Canvas(modifier = Modifier.fillMaxWidth().fillMaxHeight()) {
+        val timeSeconds = frameNanos / 1_000_000_000f
+        layoutMetrics.segments.forEach { segment ->
+            if (!previousStopsRevealed && segment.index < hiddenBeforeIndex) {
+                return@forEach
+            }
+
+            val phase = liveState.phaseOnSegment(segment.index) ?: return@forEach
+            val fillWidthPx = segment.widthPx * liveState.easedSegmentProgress(segment.index)
+            val intensity = liveState.particleIntensity(segment.index)
+            if (fillWidthPx <= 12f || intensity <= 0.06f || phase == TimelineTrainPhase.Docked) {
+                return@forEach
+            }
+
+            val visibleWidthPx = max(fillWidthPx - 6f, 1f)
+            val cycleSeconds = phase.cycleSeconds
+            val cycleProgress = ((timeSeconds % cycleSeconds) / cycleSeconds).clamp01()
+            val accent = phase.accentColor()
+            val phaseBoost = when (phase) {
+                TimelineTrainPhase.Departing -> 1.18f
+                TimelineTrainPhase.Approaching -> 1.04f
+                TimelineTrainPhase.InTransit -> 1f
+                TimelineTrainPhase.Docked -> 0f
+            }
+
+            repeat(4) { index ->
+                val localProgress = (cycleProgress + (index / 4f)) % 1f
+                val fadeIn = min(localProgress / 0.22f, 1f)
+                val fadeOut = min((1f - localProgress) / 0.30f, 1f)
+                val opacity = (0.16f + (0.42f * min(fadeIn, fadeOut))) * intensity * phaseBoost
+                val widthPx = 5f + ((index % 2) * 1.3f)
+                val heightPx = 2.1f + ((index % 2) * 0.3f)
+                val x = max(segment.startCenterXPx, segment.startCenterXPx + (localProgress * visibleWidthPx))
+                val topLeftX = x - (widthPx / 2f)
+                val topLeftY = canvasMetrics.trackYPx - (heightPx / 2f)
+
+                drawRoundRect(
+                    brush = Brush.horizontalGradient(
+                        colors = listOf(
+                            accent.copy(alpha = opacity * 0.38f),
+                            accent.copy(alpha = opacity * 0.92f),
+                            Color.White.copy(alpha = opacity * 0.72f),
+                        ),
+                    ),
+                    topLeft = Offset(topLeftX - 1.2f, topLeftY - 0.5f),
+                    size = Size(widthPx + 2.4f, heightPx + 1f),
+                    cornerRadius = CornerRadius(heightPx + 1f, heightPx + 1f),
+                )
+
+                drawRoundRect(
+                    brush = Brush.horizontalGradient(
+                        colors = listOf(
+                            accent.copy(alpha = opacity * 0.48f),
+                            accent.copy(alpha = opacity),
+                            Color.White.copy(alpha = opacity * 0.96f),
+                        ),
+                    ),
+                    topLeft = Offset(topLeftX, topLeftY),
+                    size = Size(widthPx, heightPx),
+                    cornerRadius = CornerRadius(heightPx, heightPx),
                 )
             }
         }
@@ -1317,12 +1454,6 @@ private class TimelineLiveState private constructor(
                 tone = TimelineStatusTone.Cyan,
             )
 
-            TimelineSemanticPhase.Departed -> TimelineStatusPillState(
-                title = "已離站",
-                detail = "前往 ${nextStop?.station?.localName ?: stops.last().station.localName}",
-                tone = TimelineStatusTone.Blue,
-            )
-
             TimelineSemanticPhase.InTransit -> TimelineStatusPillState(
                 title = "行進中",
                 detail = "下一站 ${nextStop?.station?.localName ?: stops.last().station.localName} ${nextStop?.let { ThsrFormatters.displayTimetableTime(it.displayTime) } ?: ""}".trim(),
@@ -1330,6 +1461,12 @@ private class TimelineLiveState private constructor(
             )
 
             TimelineSemanticPhase.Approaching -> TimelineStatusPillState(
+                title = "接近",
+                detail = "${nextStop?.station?.localName ?: stops.last().station.localName} ${nextStop?.let { ThsrFormatters.displayTimetableTime(it.displayTime) } ?: ""}".trim(),
+                tone = TimelineStatusTone.Blue,
+            )
+
+            TimelineSemanticPhase.Arriving -> TimelineStatusPillState(
                 title = "進站中",
                 detail = "${nextStop?.station?.localName ?: stops.last().station.localName} ${nextStop?.let { ThsrFormatters.displayTimetableTime(it.displayTime) } ?: ""}".trim(),
                 tone = TimelineStatusTone.Amber,
@@ -1358,15 +1495,38 @@ private class TimelineLiveState private constructor(
         return max(originStopIndex, phaseState.focusedSegmentIndex)
     }
 
-    fun defaultAnchorStopIndex(originStopIndex: Int): Int {
-        return phaseState.defaultAnchorStopIndex.coerceAtLeast(originStopIndex)
+    fun hasVisibleLiveActivity(originStopIndex: Int): Boolean {
+        activeTransitSegmentIndex()?.let { activeTransitIndex ->
+            return activeTransitIndex >= originStopIndex
+        }
+        activeStoppedStationIndex()?.let { stoppedIndex ->
+            return stoppedIndex >= originStopIndex
+        }
+        return false
     }
 
-    fun showsRailProgress(): Boolean {
-        return phaseState.phase !in setOf(
-            TimelineSemanticPhase.NotDeparted,
-            TimelineSemanticPhase.AboutToDepart,
-        )
+    fun particleIntensity(index: Int): Float {
+        if (index !in 0 until stops.lastIndex) return 0f
+        val start = segmentStart(index)
+        val end = stops[index + 1].arrival ?: stops[index + 1].departure ?: return 0f
+        if (now.isBefore(start) || !now.isBefore(end)) return 0f
+
+        val rawProgress = normalizedProgress(start = start, end = end, current = now)
+        val profile = influenceProfile(start = start, end = end)
+        return when (profile.phase(rawProgress)) {
+            TimelineTrainPhase.Departing -> {
+                val launch = profile.departurePhaseProgress(rawProgress)
+                0.56f + (0.34f * launch)
+            }
+
+            TimelineTrainPhase.Approaching -> {
+                val approach = profile.approachPhaseProgress(rawProgress)
+                0.34f + (0.20f * (1f - approach))
+            }
+
+            TimelineTrainPhase.InTransit -> 0.42f
+            TimelineTrainPhase.Docked -> 0f
+        }
     }
 
     fun easedSegmentProgress(index: Int): Float {
@@ -1400,17 +1560,14 @@ private class TimelineLiveState private constructor(
             resolvedPhase.phase == TimelineSemanticPhase.NotDeparted && index == 0 -> TimelineNodeState.Standby
             resolvedPhase.phase == TimelineSemanticPhase.AboutToDepart && index == 0 -> TimelineNodeState.DepartingSoon
             resolvedPhase.phase == TimelineSemanticPhase.Stopped && index == currentIndex -> TimelineNodeState.Stopped
-            resolvedPhase.phase == TimelineSemanticPhase.Approaching && index == nextIndex ->
-                if (resolvedPhase.nextStationTransfer >= 0.76f) TimelineNodeState.ArrivingSoon else TimelineNodeState.Approaching
             resolvedPhase.phase == TimelineSemanticPhase.Departing && index == currentIndex -> TimelineNodeState.DepartingSoon
-            resolvedPhase.phase == TimelineSemanticPhase.Departed && index == nextIndex -> TimelineNodeState.Next
-            resolvedPhase.phase == TimelineSemanticPhase.InTransit && index == nextIndex -> TimelineNodeState.Next
-            currentIndex != null && index < currentIndex -> TimelineNodeState.Passed
-            currentIndex != null && nextIndex != null && index < nextIndex && resolvedPhase.phase in setOf(
-                TimelineSemanticPhase.Approaching,
+            resolvedPhase.phase == TimelineSemanticPhase.Arriving && index == nextIndex -> TimelineNodeState.ArrivingSoon
+            resolvedPhase.phase == TimelineSemanticPhase.Approaching && index == nextIndex -> TimelineNodeState.Approaching
+            resolvedPhase.nextStationIndex == index && resolvedPhase.phase in setOf(
+                TimelineSemanticPhase.Departing,
                 TimelineSemanticPhase.InTransit,
-                TimelineSemanticPhase.Departed,
-            ) -> TimelineNodeState.Passed
+            ) -> TimelineNodeState.Next
+            currentIndex != null && index < currentIndex -> TimelineNodeState.Passed
             resolvedPhase.phase !in setOf(TimelineSemanticPhase.NotDeparted, TimelineSemanticPhase.AboutToDepart) &&
                 currentIndex != null &&
                 index == currentIndex &&
@@ -1543,19 +1700,19 @@ private class TimelineLiveState private constructor(
         }
 
         activeSegmentProgress()?.let { progress ->
-            val recentDepartureCarry = progress.profile.departedStationCarry(progress.rawProgress)
+            val remainingSeconds = Duration.between(now, nextStopDisplayDateTime(progress.segmentIndex + 1))
+                .seconds
+                .coerceAtLeast(0)
             val phase = when {
                 progress.motionPhase == TimelineTrainPhase.Departing -> TimelineSemanticPhase.Departing
+                remainingSeconds <= arrivalPulseWindow.seconds -> TimelineSemanticPhase.Arriving
                 progress.motionPhase == TimelineTrainPhase.Approaching -> TimelineSemanticPhase.Approaching
-                recentDepartureCarry > 0.02f -> TimelineSemanticPhase.Departed
                 else -> TimelineSemanticPhase.InTransit
             }
             val nextTransfer = when (phase) {
+                TimelineSemanticPhase.Arriving,
                 TimelineSemanticPhase.Approaching ->
                     progress.profile.arrivalNodeTransfer(progress.rawProgress, progress.magnetic)
-
-                TimelineSemanticPhase.InTransit ->
-                    ((progress.rawProgress - 0.56f) / 0.30f).clamp01() * 0.24f
 
                 else -> 0f
             }
@@ -1563,17 +1720,7 @@ private class TimelineLiveState private constructor(
                 TimelineSemanticPhase.Departing ->
                     progress.profile.departureNodeFade(progress.rawProgress).coerceAtLeast(0.26f)
 
-                TimelineSemanticPhase.Departed ->
-                    (0.18f + (recentDepartureCarry * 0.54f)).coerceIn(0f, 0.72f)
-
-                TimelineSemanticPhase.Approaching ->
-                    ((1f - nextTransfer) * 0.16f).coerceAtLeast(0f)
-
                 else -> 0f
-            }
-            val anchorIndex = when (phase) {
-                TimelineSemanticPhase.Approaching -> progress.segmentIndex + 1
-                else -> progress.segmentIndex
             }
             return TimelinePhaseState(
                 phase = phase,
@@ -1584,7 +1731,7 @@ private class TimelineLiveState private constructor(
                 rawProgress = progress.rawProgress,
                 currentStationTransfer = currentTransfer,
                 nextStationTransfer = nextTransfer,
-                defaultAnchorStopIndex = anchorIndex.coerceIn(0, stops.lastIndex),
+                defaultAnchorStopIndex = progress.segmentIndex.coerceIn(0, stops.lastIndex),
                 focusedSegmentIndex = progress.segmentIndex.coerceIn(0, stops.lastIndex - 1),
             )
         }

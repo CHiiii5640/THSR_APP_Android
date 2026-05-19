@@ -308,8 +308,8 @@ object ThsrDesignTokens {
     )
 
     val timeline = ThsrTimelineTokens(
-        lineHeight = 1.dp,
-        activeLineHeight = 2.dp,
+        lineHeight = 4.dp,
+        activeLineHeight = 4.dp,
         idleNodeSize = 5.dp,
         nextNodeSize = 7.dp,
         activeNodeSize = 9.dp,
