@@ -135,6 +135,7 @@ private data class TimelineResolvedStop(
     val arrival: LocalDateTime?,
     val departure: LocalDateTime?,
     val displayTime: LocalTime,
+    val stationTime: LocalDateTime,
     val dwellSeconds: Long,
 )
 
@@ -1408,8 +1409,8 @@ private class TimelineLiveState private constructor(
 
     private val originStop: TimelineResolvedStop = stops[originStopIndex]
     private val destinationStop: TimelineResolvedStop = stops[destinationStopIndex]
-    private val originDeparture: LocalDateTime = originStop.departure ?: originStop.arrival!!
-    private val destinationArrival: LocalDateTime = destinationStop.arrival ?: destinationStop.departure!!
+    private val originDeparture: LocalDateTime = originStop.stationTime
+    private val destinationArrival: LocalDateTime = destinationStop.stationTime
     private val phaseState: TimelinePhaseState by lazy(::resolvePhaseState)
 
     companion object {
@@ -1433,8 +1434,8 @@ private class TimelineLiveState private constructor(
             if (originStopIndex >= destinationStopIndex) {
                 return null
             }
-            val originDeparture = resolvedStops[originStopIndex].departure ?: resolvedStops[originStopIndex].arrival ?: return null
-            val destinationArrival = resolvedStops[destinationStopIndex].arrival ?: resolvedStops[destinationStopIndex].departure ?: return null
+            val originDeparture = resolvedStops[originStopIndex].stationTime
+            val destinationArrival = resolvedStops[destinationStopIndex].stationTime
             val visibilityEnd = maxOf(destinationArrival.plus(visibilityPostArrivalWindow), travelDate.plusDays(1).atStartOfDay())
             if (now.isBefore(originDeparture.minus(visibilityPredepartureWindow)) || now.isAfter(visibilityEnd)) {
                 return null
@@ -1454,6 +1455,7 @@ private class TimelineLiveState private constructor(
         ): List<TimelineResolvedStop> {
             val seedTime = stops.firstNotNullOfOrNull { it.departureTime ?: it.arrivalTime } ?: LocalTime.MIDNIGHT
             var anchor = LocalDateTime.of(travelDate, seedTime).minusMinutes(1)
+            var previousStationTime: LocalDateTime? = null
             return stops.mapIndexed { index, stop ->
                 val arrival = stop.arrivalTime?.let { resolveDateTime(travelDate, it, anchor) }
                 if (arrival != null && arrival.isAfter(anchor)) {
@@ -1463,9 +1465,18 @@ private class TimelineLiveState private constructor(
                 if (departure != null && departure.isAfter(anchor)) {
                     anchor = departure
                 }
+                val displayTime = stop.departureTime ?: stop.arrivalTime ?: LocalTime.MIDNIGHT
+                val stationTime = resolveStationDateTime(
+                    travelDate = travelDate,
+                    time = displayTime,
+                    previous = previousStationTime,
+                )
+                previousStationTime = stationTime
                 val dwellSeconds = when {
-                    arrival != null && departure != null && departure.isAfter(arrival) ->
-                        Duration.between(arrival, departure).seconds.coerceAtLeast(0)
+                    arrival != null && departure != null -> {
+                        val realDwellSeconds = Duration.between(arrival, departure).seconds
+                        if (realDwellSeconds > 0) realDwellSeconds else 40L
+                    }
 
                     index in 1 until stops.lastIndex -> 40L
                     else -> 0L
@@ -1475,7 +1486,8 @@ private class TimelineLiveState private constructor(
                     station = stop.station,
                     arrival = arrival,
                     departure = departure,
-                    displayTime = stop.departureTime ?: stop.arrivalTime ?: LocalTime.MIDNIGHT,
+                    displayTime = displayTime,
+                    stationTime = stationTime,
                     dwellSeconds = dwellSeconds,
                 )
             }
@@ -1488,6 +1500,18 @@ private class TimelineLiveState private constructor(
         ): LocalDateTime {
             var resolved = LocalDateTime.of(travelDate, time)
             while (resolved.isBefore(notBefore)) {
+                resolved = resolved.plusDays(1)
+            }
+            return resolved
+        }
+
+        private fun resolveStationDateTime(
+            travelDate: LocalDate,
+            time: LocalTime,
+            previous: LocalDateTime?,
+        ): LocalDateTime {
+            var resolved = LocalDateTime.of(travelDate, time)
+            while (previous != null && !resolved.isAfter(previous)) {
                 resolved = resolved.plusDays(1)
             }
             return resolved
@@ -1544,8 +1568,8 @@ private class TimelineLiveState private constructor(
 
             TimelineSemanticPhase.Stopped -> {
                 val stop = currentStop ?: destinationStop
-                val departure = stop.departure ?: stop.arrival?.plusSeconds(stop.dwellSeconds)
-                val remaining = departure?.let { Duration.between(now, it).seconds.coerceAtLeast(0) } ?: 0
+                val departure = stationDepartureTime(stop.index)
+                val remaining = Duration.between(now, departure).seconds.coerceAtLeast(0)
                 TimelineStatusPillState(
                     icon = Icons.Outlined.RadioButtonChecked,
                     title = "停靠中",
@@ -1616,7 +1640,7 @@ private class TimelineLiveState private constructor(
     fun particleIntensity(index: Int): Float {
         if (index !in originStopIndex until destinationStopIndex) return 0f
         val start = segmentStart(index)
-        val end = stops[index + 1].arrival ?: stops[index + 1].departure ?: return 0f
+        val end = stops[index + 1].stationTime
         if (now.isBefore(start) || !now.isBefore(end)) return 0f
 
         val rawProgress = normalizedProgress(start = start, end = end, current = now)
@@ -1640,7 +1664,7 @@ private class TimelineLiveState private constructor(
     fun easedSegmentProgress(index: Int): Float {
         if (index !in originStopIndex until destinationStopIndex) return 0f
         val start = segmentStart(index)
-        val end = stops[index + 1].arrival ?: stops[index + 1].departure ?: return 0f
+        val end = stops[index + 1].stationTime
         if (now.isBefore(start)) return 0f
         if (!now.isBefore(end)) return 1f
         val rawProgress = normalizedProgress(start = start, end = end, current = now)
@@ -1738,8 +1762,8 @@ private class TimelineLiveState private constructor(
         val stoppedIndex = resolvedPhase.currentStationIndex
         if (stoppedIndex != null) {
             if (resolvedPhase.phase == TimelineSemanticPhase.Stopped) {
-                val arrival = stops[stoppedIndex].arrival ?: return null
-                val departure = stops[stoppedIndex].departure ?: arrival.plusSeconds(stops[stoppedIndex].dwellSeconds)
+                val arrival = stops[stoppedIndex].stationTime
+                val departure = stationDepartureTime(stoppedIndex)
                 val elapsedSeconds = Duration.between(arrival, now).seconds.coerceAtLeast(0).toFloat()
                 val remainingSeconds = Duration.between(now, departure).seconds.coerceAtLeast(0).toFloat()
                 val settleProgress = railBlend(elapsedSeconds / dockBlendDuration.seconds.toFloat())
@@ -1863,7 +1887,7 @@ private class TimelineLiveState private constructor(
     private fun activeSegmentProgress(): TimelineActiveSegmentProgress? {
         val transitIndex = activeTransitSegmentIndex() ?: return null
         val start = segmentStart(transitIndex)
-        val end = stops[transitIndex + 1].arrival ?: stops[transitIndex + 1].departure ?: return null
+        val end = stops[transitIndex + 1].stationTime
         val rawProgress = normalizedProgress(start = start, end = end, current = now)
         val profile = influenceProfile(start = start, end = end)
         val magnetic = Duration.between(now, end) <= arrivalPulseWindow
@@ -1879,13 +1903,18 @@ private class TimelineLiveState private constructor(
 
     private fun segmentStart(index: Int): LocalDateTime {
         val stop = stops[index]
-        return stop.departure ?: stop.arrival?.plusSeconds(stop.dwellSeconds) ?: stop.arrival ?: originDeparture
+        // Mirror iOS: intermediate segments start after the station timeline time plus its dwell hold.
+        return if (index == originStopIndex) {
+            stop.stationTime
+        } else {
+            stationDepartureTime(index)
+        }
     }
 
     private fun activeTransitSegmentIndex(): Int? {
         for (index in originStopIndex until destinationStopIndex) {
             val start = segmentStart(index)
-            val end = stops[index + 1].arrival ?: stops[index + 1].departure ?: continue
+            val end = stops[index + 1].stationTime
             if (!now.isBefore(start) && now.isBefore(end)) {
                 return index
             }
@@ -1896,8 +1925,8 @@ private class TimelineLiveState private constructor(
     private fun activeStoppedStationIndex(): Int? {
         if (destinationStopIndex - originStopIndex <= 1) return null
         for (index in (originStopIndex + 1) until destinationStopIndex) {
-            val arrival = stops[index].arrival ?: continue
-            val departure = stops[index].departure ?: arrival.plusSeconds(stops[index].dwellSeconds)
+            val arrival = stops[index].stationTime
+            val departure = stationDepartureTime(index)
             if (!now.isBefore(arrival) && now.isBefore(departure)) {
                 return index
             }
@@ -1969,7 +1998,12 @@ private class TimelineLiveState private constructor(
     }
 
     private fun nextStopDisplayDateTime(index: Int): LocalDateTime =
-        stops.getOrNull(index)?.arrival ?: stops.getOrNull(index)?.departure ?: destinationArrival
+        stops.getOrNull(index)?.stationTime ?: destinationArrival
+
+    private fun stationDepartureTime(index: Int): LocalDateTime {
+        val stop = stops.getOrNull(index) ?: return originDeparture
+        return stop.stationTime.plusSeconds(stop.dwellSeconds)
+    }
 }
 
 private fun lerp(start: Float, end: Float, progress: Float): Float = start + ((end - start) * progress)
