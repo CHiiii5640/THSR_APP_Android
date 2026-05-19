@@ -149,6 +149,38 @@ private data class TimelineLayoutMetrics(
     fun segment(index: Int): TimelineSegmentMetrics? = segments.getOrNull(index)
 
     fun maxOffsetPx(viewportWidthPx: Float): Float = max(0f, totalWidthPx - viewportWidthPx)
+
+    fun contentWidthPx(
+        viewportWidthPx: Float,
+        restingOffsetPx: Float,
+    ): Float = max(totalWidthPx, viewportWidthPx + restingOffsetPx)
+
+    fun requestedRestingOffsetPx(
+        index: Int,
+        preferredLeadingInsetPx: Float,
+        labelWidthPx: Float,
+    ): Float {
+        val anchorCenterPx = nodeCenterPx(index)
+        val desiredOffsetPx = (anchorCenterPx - preferredLeadingInsetPx).coerceAtLeast(0f)
+        val labelSafeOffsetPx = (anchorCenterPx - (labelWidthPx / 2f)).coerceAtLeast(0f)
+        return min(desiredOffsetPx, labelSafeOffsetPx)
+    }
+
+    fun defaultRestingOffsetPx(
+        index: Int,
+        preferredLeadingInsetPx: Float,
+        labelWidthPx: Float,
+        viewportWidthPx: Float,
+        contentWidthPx: Float,
+    ): Float {
+        val restingOffsetPx = requestedRestingOffsetPx(
+            index = index,
+            preferredLeadingInsetPx = preferredLeadingInsetPx,
+            labelWidthPx = labelWidthPx,
+        )
+        val maxRestingOffsetPx = max(0f, contentWidthPx - viewportWidthPx)
+        return restingOffsetPx.coerceIn(0f, maxRestingOffsetPx)
+    }
 }
 
 private data class TimelineVisualMetrics(
@@ -353,19 +385,26 @@ fun StopTimeline(
             )
         }
     }
+    val originStopIndex = remember(stops) {
+        stops.indexOfFirst { it.role == TimelineStopRole.Origin }
+            .takeIf { it >= 0 }
+            ?: 0
+    }
+    val destinationStopIndex = remember(stops) {
+        stops.indexOfFirst { it.role == TimelineStopRole.Destination }
+            .takeIf { it >= 0 }
+            ?: stops.lastIndex
+    }
     val frame = rememberTimelineFrame()
-    val liveState = remember(stops, option.travelDate, frame.now, canvasMetrics) {
+    val liveState = remember(stops, option.travelDate, frame.now, canvasMetrics, originStopIndex, destinationStopIndex) {
         TimelineLiveState.create(
             stops = stops,
             travelDate = option.travelDate,
             now = frame.now,
             markerHeightPx = canvasMetrics.markerHeightPx,
+            originStopIndex = originStopIndex,
+            destinationStopIndex = destinationStopIndex,
         )
-    }
-    val originStopIndex = remember(stops, option.origin) {
-        stops.indexOfFirst { it.station == option.origin }
-            .takeIf { it >= 0 }
-            ?: 0
     }
     val statusPill = remember(liveState) { liveState?.statusPill() }
     val scrollState = rememberScrollState()
@@ -409,25 +448,39 @@ fun StopTimeline(
                 liveState?.focusedSegmentIndex(anchorStopIndex)
                     ?: anchorStopIndex
                 ).coerceIn(0, layoutMetrics.segments.lastIndex)
-            val maxOffsetPx = layoutMetrics.maxOffsetPx(viewportWidthPx)
-            val initialOffsetPx = remember(anchorStopIndex, maxOffsetPx, layoutMetrics.nodeCentersPx, layoutMetrics.leadingInsetPx) {
-                val anchorCenterPx = layoutMetrics.nodeCenterPx(anchorStopIndex)
-                (anchorCenterPx - layoutMetrics.leadingInsetPx)
-                    .coerceIn(0f, maxOffsetPx)
+            val labelWidthPx = with(density) { visualMetrics.labelWidth.toPx() }
+            val requestedInitialOffsetPx = remember(anchorStopIndex, layoutMetrics.nodeCentersPx, layoutMetrics.leadingInsetPx, labelWidthPx) {
+                layoutMetrics.requestedRestingOffsetPx(
+                    index = anchorStopIndex,
+                    preferredLeadingInsetPx = layoutMetrics.leadingInsetPx,
+                    labelWidthPx = labelWidthPx,
+                )
             }
-            val contentWidthPx = remember(layoutMetrics.totalWidthPx, viewportWidthPx, initialOffsetPx) {
-                max(layoutMetrics.totalWidthPx, viewportWidthPx + initialOffsetPx)
+            val contentWidthPx = remember(layoutMetrics.totalWidthPx, viewportWidthPx, requestedInitialOffsetPx) {
+                layoutMetrics.contentWidthPx(
+                    viewportWidthPx = viewportWidthPx,
+                    restingOffsetPx = requestedInitialOffsetPx,
+                )
+            }
+            val lockedOffsetPx = remember(anchorStopIndex, layoutMetrics.nodeCentersPx, labelWidthPx, contentWidthPx, viewportWidthPx) {
+                layoutMetrics.defaultRestingOffsetPx(
+                    index = anchorStopIndex,
+                    preferredLeadingInsetPx = layoutMetrics.leadingInsetPx,
+                    labelWidthPx = labelWidthPx,
+                    viewportWidthPx = viewportWidthPx,
+                    contentWidthPx = contentWidthPx,
+                )
             }
             val revealThresholdPx = with(density) { tokens.timeline.revealThreshold.toPx() }
-            val shouldShowVisibleLiveActivity = previousStopsRevealed ||
-                (liveState?.hasVisibleLiveActivity(anchorStopIndex) ?: false)
-            val lockedOffsetPx = initialOffsetPx
+            val shouldShowRailProgress = liveState?.hasVisibleRailProgress(anchorStopIndex) ?: false
+            val shouldShowMarker = liveState?.shouldShowMarker(anchorStopIndex) ?: false
 
-            LaunchedEffect(anchorStopIndex, initialOffsetPx, option.trainNo, option.travelDate, option.origin, option.destination) {
+            LaunchedEffect(anchorStopIndex, lockedOffsetPx, contentWidthPx, option.trainNo, option.travelDate, option.origin, option.destination) {
                 previousStopsRevealed = anchorStopIndex <= 0
                 revealDragDistancePx = 0f
                 isUserDragging = false
-                scrollState.scrollTo(initialOffsetPx.roundToInt())
+                withFrameNanos { }
+                scrollState.scrollTo(lockedOffsetPx.roundToInt())
             }
 
             LaunchedEffect(scrollState.value, isUserDragging, revealDragDistancePx, previousStopsRevealed, lockedOffsetPx, anchorStopIndex) {
@@ -508,7 +561,8 @@ fun StopTimeline(
                         hiddenBeforeIndex = hiddenBeforeIndex,
                         previousStopsRevealed = previousStopsRevealed,
                         focusedSegmentIndex = focusedSegmentIndex,
-                        showsLiveProgress = shouldShowVisibleLiveActivity,
+                        showsRailProgress = shouldShowRailProgress,
+                        showsMarker = shouldShowMarker,
                     )
 
                     TimelineParticleCanvas(
@@ -518,7 +572,7 @@ fun StopTimeline(
                         frameNanos = frame.frameNanos,
                         hiddenBeforeIndex = hiddenBeforeIndex,
                         previousStopsRevealed = previousStopsRevealed,
-                        showsLiveProgress = shouldShowVisibleLiveActivity,
+                        showsLiveProgress = shouldShowRailProgress,
                     )
 
                     stops.forEachIndexed { index, stop ->
@@ -601,7 +655,8 @@ private fun TimelineRailCanvas(
     hiddenBeforeIndex: Int,
     previousStopsRevealed: Boolean,
     focusedSegmentIndex: Int,
-    showsLiveProgress: Boolean,
+    showsRailProgress: Boolean,
+    showsMarker: Boolean,
 ) {
     val tokens = ThsrDesignTokens
     Canvas(modifier = Modifier.fillMaxWidth().fillMaxHeight()) {
@@ -623,7 +678,7 @@ private fun TimelineRailCanvas(
             )
 
             val progress = liveState?.easedSegmentProgress(segment.index) ?: 0f
-            if (!showsLiveProgress || progress <= 0f) {
+            if (!showsRailProgress || progress <= 0f) {
                 return@forEach
             }
 
@@ -683,7 +738,7 @@ private fun TimelineRailCanvas(
 
         liveState?.marker(layoutMetrics)?.let { marker ->
             if (
-                showsLiveProgress &&
+                showsMarker &&
                 (previousStopsRevealed || marker.centerXPx >= layoutMetrics.nodeCenterPx(hiddenBeforeIndex))
             ) {
                 drawTimelineMarker(
@@ -1347,6 +1402,8 @@ private class TimelineLiveState private constructor(
     private val stops: List<TimelineResolvedStop>,
     private val now: LocalDateTime,
     private val markerHeightPx: Float,
+    private val originStopIndex: Int,
+    private val destinationStopIndex: Int,
 ) {
     private val departingSoonWindow = Duration.ofMinutes(2)
     private val approachWindow = Duration.ofSeconds(90)
@@ -1354,8 +1411,10 @@ private class TimelineLiveState private constructor(
     private val dockBlendDuration = Duration.ofSeconds(10)
     private val departureBlendWindow = Duration.ofSeconds(12)
 
-    private val firstDeparture: LocalDateTime = stops.first().departure ?: stops.first().arrival!!
-    private val lastArrival: LocalDateTime = stops.last().arrival ?: stops.last().departure!!
+    private val originStop: TimelineResolvedStop = stops[originStopIndex]
+    private val destinationStop: TimelineResolvedStop = stops[destinationStopIndex]
+    private val originDeparture: LocalDateTime = originStop.departure ?: originStop.arrival!!
+    private val destinationArrival: LocalDateTime = destinationStop.arrival ?: destinationStop.departure!!
     private val phaseState: TimelinePhaseState by lazy(::resolvePhaseState)
 
     companion object {
@@ -1367,20 +1426,30 @@ private class TimelineLiveState private constructor(
             travelDate: LocalDate,
             now: LocalDateTime,
             markerHeightPx: Float,
+            originStopIndex: Int,
+            destinationStopIndex: Int,
         ): TimelineLiveState? {
             if (stops.size < 2) return null
             val resolvedStops = resolveStops(stops = stops, travelDate = travelDate)
             if (resolvedStops.size < 2) return null
-            val firstDeparture = resolvedStops.firstNotNullOfOrNull { it.departure ?: it.arrival } ?: return null
-            val lastArrival = resolvedStops.asReversed().firstNotNullOfOrNull { it.arrival ?: it.departure } ?: return null
-            val visibilityEnd = maxOf(lastArrival.plus(visibilityPostArrivalWindow), travelDate.plusDays(1).atStartOfDay())
-            if (now.isBefore(firstDeparture.minus(visibilityPredepartureWindow)) || now.isAfter(visibilityEnd)) {
+            if (originStopIndex !in resolvedStops.indices || destinationStopIndex !in resolvedStops.indices) {
+                return null
+            }
+            if (originStopIndex >= destinationStopIndex) {
+                return null
+            }
+            val originDeparture = resolvedStops[originStopIndex].departure ?: resolvedStops[originStopIndex].arrival ?: return null
+            val destinationArrival = resolvedStops[destinationStopIndex].arrival ?: resolvedStops[destinationStopIndex].departure ?: return null
+            val visibilityEnd = maxOf(destinationArrival.plus(visibilityPostArrivalWindow), travelDate.plusDays(1).atStartOfDay())
+            if (now.isBefore(originDeparture.minus(visibilityPredepartureWindow)) || now.isAfter(visibilityEnd)) {
                 return null
             }
             return TimelineLiveState(
                 stops = resolvedStops,
                 now = now,
                 markerHeightPx = markerHeightPx,
+                originStopIndex = originStopIndex,
+                destinationStopIndex = destinationStopIndex,
             )
         }
 
@@ -1438,42 +1507,42 @@ private class TimelineLiveState private constructor(
         return when (resolvedPhase.phase) {
             TimelineSemanticPhase.NotDeparted -> TimelineStatusPillState(
                 title = "待命",
-                detail = "${stops.first().station.localName} ${ThsrFormatters.displayTimetableTime(stops.first().displayTime)}",
+                detail = "${originStop.station.localName} ${ThsrFormatters.displayTimetableTime(originStop.displayTime)}",
                 tone = TimelineStatusTone.Blue,
             )
 
             TimelineSemanticPhase.AboutToDepart -> TimelineStatusPillState(
                 title = "準備發車",
-                detail = "${stops.first().station.localName} ${ThsrFormatters.displayTimetableTime(stops.first().displayTime)}",
+                detail = "${originStop.station.localName} ${ThsrFormatters.displayTimetableTime(originStop.displayTime)}",
                 tone = TimelineStatusTone.Cyan,
             )
 
             TimelineSemanticPhase.Departing -> TimelineStatusPillState(
                 title = "離站中",
-                detail = "${currentStop?.station?.localName ?: stops.first().station.localName} 開出",
+                detail = "${currentStop?.station?.localName ?: originStop.station.localName} 開出",
                 tone = TimelineStatusTone.Cyan,
             )
 
             TimelineSemanticPhase.InTransit -> TimelineStatusPillState(
                 title = "行進中",
-                detail = "下一站 ${nextStop?.station?.localName ?: stops.last().station.localName} ${nextStop?.let { ThsrFormatters.displayTimetableTime(it.displayTime) } ?: ""}".trim(),
+                detail = "下一站 ${nextStop?.station?.localName ?: destinationStop.station.localName} ${nextStop?.let { ThsrFormatters.displayTimetableTime(it.displayTime) } ?: ""}".trim(),
                 tone = TimelineStatusTone.Blue,
             )
 
             TimelineSemanticPhase.Approaching -> TimelineStatusPillState(
                 title = "接近",
-                detail = "${nextStop?.station?.localName ?: stops.last().station.localName} ${nextStop?.let { ThsrFormatters.displayTimetableTime(it.displayTime) } ?: ""}".trim(),
+                detail = "${nextStop?.station?.localName ?: destinationStop.station.localName} ${nextStop?.let { ThsrFormatters.displayTimetableTime(it.displayTime) } ?: ""}".trim(),
                 tone = TimelineStatusTone.Blue,
             )
 
             TimelineSemanticPhase.Arriving -> TimelineStatusPillState(
                 title = "進站中",
-                detail = "${nextStop?.station?.localName ?: stops.last().station.localName} ${nextStop?.let { ThsrFormatters.displayTimetableTime(it.displayTime) } ?: ""}".trim(),
+                detail = "${nextStop?.station?.localName ?: destinationStop.station.localName} ${nextStop?.let { ThsrFormatters.displayTimetableTime(it.displayTime) } ?: ""}".trim(),
                 tone = TimelineStatusTone.Amber,
             )
 
             TimelineSemanticPhase.Stopped -> {
-                val stop = currentStop ?: stops.last()
+                val stop = currentStop ?: destinationStop
                 val departure = stop.departure ?: stop.arrival?.plusSeconds(stop.dwellSeconds)
                 val remaining = departure?.let { Duration.between(now, it).seconds.coerceAtLeast(0) } ?: 0
                 TimelineStatusPillState(
@@ -1485,7 +1554,7 @@ private class TimelineLiveState private constructor(
 
             TimelineSemanticPhase.Arrived -> TimelineStatusPillState(
                 title = "已抵達",
-                detail = stops.last().station.localName,
+                detail = destinationStop.station.localName,
                 tone = TimelineStatusTone.Blue,
             )
         }
@@ -1495,18 +1564,38 @@ private class TimelineLiveState private constructor(
         return max(originStopIndex, phaseState.focusedSegmentIndex)
     }
 
-    fun hasVisibleLiveActivity(originStopIndex: Int): Boolean {
-        activeTransitSegmentIndex()?.let { activeTransitIndex ->
-            return activeTransitIndex >= originStopIndex
+    fun hasVisibleRailProgress(originStopIndex: Int): Boolean {
+        val resolvedPhase = phaseState
+        return when (resolvedPhase.phase) {
+            TimelineSemanticPhase.NotDeparted,
+            TimelineSemanticPhase.AboutToDepart,
+            TimelineSemanticPhase.Arrived -> false
+
+            TimelineSemanticPhase.Stopped ->
+                resolvedPhase.currentStationIndex?.let { it >= originStopIndex } ?: false
+
+            else ->
+                resolvedPhase.activeSegmentIndex?.let { it >= originStopIndex } ?: false
         }
-        activeStoppedStationIndex()?.let { stoppedIndex ->
-            return stoppedIndex >= originStopIndex
+    }
+
+    fun shouldShowMarker(originStopIndex: Int): Boolean {
+        val resolvedPhase = phaseState
+        return when (resolvedPhase.phase) {
+            TimelineSemanticPhase.Arrived -> false
+            TimelineSemanticPhase.NotDeparted,
+            TimelineSemanticPhase.AboutToDepart -> this.originStopIndex >= originStopIndex
+
+            TimelineSemanticPhase.Stopped ->
+                resolvedPhase.currentStationIndex?.let { it >= originStopIndex } ?: false
+
+            else ->
+                resolvedPhase.activeSegmentIndex?.let { it >= originStopIndex } ?: false
         }
-        return false
     }
 
     fun particleIntensity(index: Int): Float {
-        if (index !in 0 until stops.lastIndex) return 0f
+        if (index !in originStopIndex until destinationStopIndex) return 0f
         val start = segmentStart(index)
         val end = stops[index + 1].arrival ?: stops[index + 1].departure ?: return 0f
         if (now.isBefore(start) || !now.isBefore(end)) return 0f
@@ -1530,7 +1619,7 @@ private class TimelineLiveState private constructor(
     }
 
     fun easedSegmentProgress(index: Int): Float {
-        if (index !in 0 until stops.lastIndex) return 0f
+        if (index !in originStopIndex until destinationStopIndex) return 0f
         val start = segmentStart(index)
         val end = stops[index + 1].arrival ?: stops[index + 1].departure ?: return 0f
         if (now.isBefore(start)) return 0f
@@ -1548,17 +1637,18 @@ private class TimelineLiveState private constructor(
 
     fun nodeState(index: Int): TimelineNodeState {
         if (index !in stops.indices) return TimelineNodeState.Station
+        if (index < originStopIndex || index > destinationStopIndex) return TimelineNodeState.Station
         val resolvedPhase = phaseState
         val currentIndex = resolvedPhase.currentStationIndex
         val nextIndex = resolvedPhase.nextStationIndex
 
-        if (index == stops.lastIndex && resolvedPhase.phase == TimelineSemanticPhase.Arrived) {
+        if (index == destinationStopIndex && resolvedPhase.phase == TimelineSemanticPhase.Arrived) {
             return TimelineNodeState.Arrived
         }
 
         return when {
-            resolvedPhase.phase == TimelineSemanticPhase.NotDeparted && index == 0 -> TimelineNodeState.Standby
-            resolvedPhase.phase == TimelineSemanticPhase.AboutToDepart && index == 0 -> TimelineNodeState.DepartingSoon
+            resolvedPhase.phase == TimelineSemanticPhase.NotDeparted && index == originStopIndex -> TimelineNodeState.Standby
+            resolvedPhase.phase == TimelineSemanticPhase.AboutToDepart && index == originStopIndex -> TimelineNodeState.DepartingSoon
             resolvedPhase.phase == TimelineSemanticPhase.Stopped && index == currentIndex -> TimelineNodeState.Stopped
             resolvedPhase.phase == TimelineSemanticPhase.Departing && index == currentIndex -> TimelineNodeState.DepartingSoon
             resolvedPhase.phase == TimelineSemanticPhase.Arriving && index == nextIndex -> TimelineNodeState.ArrivingSoon
@@ -1567,7 +1657,7 @@ private class TimelineLiveState private constructor(
                 TimelineSemanticPhase.Departing,
                 TimelineSemanticPhase.InTransit,
             ) -> TimelineNodeState.Next
-            currentIndex != null && index < currentIndex -> TimelineNodeState.Passed
+            currentIndex != null && index in originStopIndex until currentIndex -> TimelineNodeState.Passed
             resolvedPhase.phase !in setOf(TimelineSemanticPhase.NotDeparted, TimelineSemanticPhase.AboutToDepart) &&
                 currentIndex != null &&
                 index == currentIndex &&
@@ -1579,9 +1669,10 @@ private class TimelineLiveState private constructor(
 
     fun nodeActivationProgress(index: Int): Float {
         if (index !in stops.indices) return 0f
+        if (index < originStopIndex || index > destinationStopIndex) return 0f
         val resolvedPhase = phaseState
         return when {
-            resolvedPhase.phase == TimelineSemanticPhase.Arrived && index == stops.lastIndex -> 1f
+            resolvedPhase.phase == TimelineSemanticPhase.Arrived && index == destinationStopIndex -> 1f
             resolvedPhase.currentStationIndex == index -> resolvedPhase.currentStationTransfer
             resolvedPhase.nextStationIndex == index -> resolvedPhase.nextStationTransfer
             else -> 0f
@@ -1592,7 +1683,7 @@ private class TimelineLiveState private constructor(
         val resolvedPhase = phaseState
         if (resolvedPhase.phase in setOf(TimelineSemanticPhase.NotDeparted, TimelineSemanticPhase.AboutToDepart)) {
             return TimelineMarkerVisual(
-                centerXPx = layout.nodeCenterPx(0),
+                centerXPx = layout.nodeCenterPx(originStopIndex),
                 phase = TimelineTrainPhase.Docked,
                 motion = TimelineMotionMetrics(
                     headWidthPx = markerHeightPx * 1.28f,
@@ -1654,33 +1745,33 @@ private class TimelineLiveState private constructor(
     }
 
     private fun resolvePhaseState(): TimelinePhaseState {
-        if (now.isBefore(firstDeparture.minus(departingSoonWindow))) {
+        if (now.isBefore(originDeparture.minus(departingSoonWindow))) {
             return TimelinePhaseState(
                 phase = TimelineSemanticPhase.NotDeparted,
-                currentStationIndex = 0,
-                nextStationIndex = stops.getOrNull(1)?.index,
-                activeSegmentIndex = 0,
-                motionPhase = TimelineTrainPhase.Docked,
+                currentStationIndex = originStopIndex,
+                nextStationIndex = (originStopIndex + 1).takeIf { it <= destinationStopIndex },
+                activeSegmentIndex = null,
+                motionPhase = null,
                 rawProgress = null,
                 currentStationTransfer = 1f,
                 nextStationTransfer = 0f,
-                defaultAnchorStopIndex = 0,
-                focusedSegmentIndex = 0,
+                defaultAnchorStopIndex = originStopIndex,
+                focusedSegmentIndex = originStopIndex.coerceAtMost(stops.lastIndex - 1),
             )
         }
 
-        if (now.isBefore(firstDeparture)) {
+        if (now.isBefore(originDeparture)) {
             return TimelinePhaseState(
                 phase = TimelineSemanticPhase.AboutToDepart,
-                currentStationIndex = 0,
-                nextStationIndex = stops.getOrNull(1)?.index,
-                activeSegmentIndex = 0,
-                motionPhase = TimelineTrainPhase.Docked,
+                currentStationIndex = originStopIndex,
+                nextStationIndex = (originStopIndex + 1).takeIf { it <= destinationStopIndex },
+                activeSegmentIndex = null,
+                motionPhase = null,
                 rawProgress = null,
                 currentStationTransfer = 1f,
                 nextStationTransfer = 0.10f,
-                defaultAnchorStopIndex = 0,
-                focusedSegmentIndex = 0,
+                defaultAnchorStopIndex = originStopIndex,
+                focusedSegmentIndex = originStopIndex.coerceAtMost(stops.lastIndex - 1),
             )
         }
 
@@ -1688,14 +1779,14 @@ private class TimelineLiveState private constructor(
             return TimelinePhaseState(
                 phase = TimelineSemanticPhase.Stopped,
                 currentStationIndex = stoppedIndex,
-                nextStationIndex = (stoppedIndex + 1).takeIf { it <= stops.lastIndex },
-                activeSegmentIndex = minOf(stoppedIndex, stops.lastIndex - 1),
+                nextStationIndex = (stoppedIndex + 1).takeIf { it <= destinationStopIndex },
+                activeSegmentIndex = minOf(stoppedIndex, destinationStopIndex - 1),
                 motionPhase = TimelineTrainPhase.Docked,
                 rawProgress = null,
                 currentStationTransfer = 1f,
                 nextStationTransfer = 0.14f,
                 defaultAnchorStopIndex = stoppedIndex,
-                focusedSegmentIndex = minOf(stoppedIndex, stops.lastIndex - 1),
+                focusedSegmentIndex = minOf(stoppedIndex, destinationStopIndex - 1),
             )
         }
 
@@ -1731,22 +1822,22 @@ private class TimelineLiveState private constructor(
                 rawProgress = progress.rawProgress,
                 currentStationTransfer = currentTransfer,
                 nextStationTransfer = nextTransfer,
-                defaultAnchorStopIndex = progress.segmentIndex.coerceIn(0, stops.lastIndex),
-                focusedSegmentIndex = progress.segmentIndex.coerceIn(0, stops.lastIndex - 1),
+                defaultAnchorStopIndex = progress.segmentIndex.coerceIn(originStopIndex, destinationStopIndex),
+                focusedSegmentIndex = progress.segmentIndex.coerceIn(originStopIndex, destinationStopIndex - 1),
             )
         }
 
         return TimelinePhaseState(
             phase = TimelineSemanticPhase.Arrived,
-            currentStationIndex = stops.lastIndex,
+            currentStationIndex = destinationStopIndex,
             nextStationIndex = null,
-            activeSegmentIndex = stops.lastIndex - 1,
+            activeSegmentIndex = (destinationStopIndex - 1).takeIf { it >= originStopIndex },
             motionPhase = null,
             rawProgress = null,
             currentStationTransfer = 1f,
             nextStationTransfer = 0f,
-            defaultAnchorStopIndex = stops.lastIndex,
-            focusedSegmentIndex = stops.lastIndex - 1,
+            defaultAnchorStopIndex = destinationStopIndex,
+            focusedSegmentIndex = (destinationStopIndex - 1).coerceAtLeast(originStopIndex),
         )
     }
 
@@ -1768,15 +1859,12 @@ private class TimelineLiveState private constructor(
     }
 
     private fun segmentStart(index: Int): LocalDateTime {
-        if (index == 0) {
-            return firstDeparture
-        }
         val stop = stops[index]
-        return stop.departure ?: stop.arrival?.plusSeconds(stop.dwellSeconds) ?: firstDeparture
+        return stop.departure ?: stop.arrival?.plusSeconds(stop.dwellSeconds) ?: stop.arrival ?: originDeparture
     }
 
     private fun activeTransitSegmentIndex(): Int? {
-        for (index in 0 until stops.lastIndex) {
+        for (index in originStopIndex until destinationStopIndex) {
             val start = segmentStart(index)
             val end = stops[index + 1].arrival ?: stops[index + 1].departure ?: continue
             if (!now.isBefore(start) && now.isBefore(end)) {
@@ -1787,8 +1875,8 @@ private class TimelineLiveState private constructor(
     }
 
     private fun activeStoppedStationIndex(): Int? {
-        if (stops.size <= 2) return null
-        for (index in 1 until stops.lastIndex) {
+        if (destinationStopIndex - originStopIndex <= 1) return null
+        for (index in (originStopIndex + 1) until destinationStopIndex) {
             val arrival = stops[index].arrival ?: continue
             val departure = stops[index].departure ?: arrival.plusSeconds(stops[index].dwellSeconds)
             if (!now.isBefore(arrival) && now.isBefore(departure)) {
@@ -1862,7 +1950,7 @@ private class TimelineLiveState private constructor(
     }
 
     private fun nextStopDisplayDateTime(index: Int): LocalDateTime =
-        stops[index].arrival ?: stops[index].departure ?: firstDeparture
+        stops.getOrNull(index)?.arrival ?: stops.getOrNull(index)?.departure ?: destinationArrival
 }
 
 private fun lerp(start: Float, end: Float, progress: Float): Float = start + ((end - start) * progress)
