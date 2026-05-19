@@ -28,14 +28,16 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Description
-import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.ErrorOutline
+import androidx.compose.material.icons.outlined.EventSeat
+import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.TravelExplore
@@ -464,12 +466,12 @@ private fun ExpandDisclosureButton(
     val tokens = ThsrDesignTokens
     val interactionSource = remember { MutableInteractionSource() }
     val rotation by animateFloatAsState(
-        targetValue = if (expanded) -90f else 0f,
+        targetValue = if (expanded) 180f else 0f,
         animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = 0.84f),
         label = "booking-status-chevron",
     )
     Icon(
-        imageVector = Icons.Outlined.ChevronRight,
+        imageVector = Icons.Outlined.ExpandMore,
         contentDescription = null,
         tint = tint,
         modifier = Modifier
@@ -509,21 +511,33 @@ private fun SeatAvailabilityBlock(
     seatAvailability: SeatAvailabilityDetail,
     layoutProfile: ThsrLayoutProfile,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        SeatStatusSourceRow(
-            source = "OD",
-            standard = seatAvailability.standardSeatStatus,
-            business = seatAvailability.businessSeatStatus,
-            layoutProfile = layoutProfile,
-            hasBoardSeatStatus = true,
+    val tokens = ThsrDesignTokens
+    Row(
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Icon(
+            imageVector = Icons.Outlined.EventSeat,
+            contentDescription = null,
+            tint = tokens.colors.textSecondary.copy(alpha = tokens.opacity.subduedText),
+            modifier = Modifier.size(16.dp),
         )
-        SeatStatusSourceRow(
-            source = "看板",
-            standard = if (seatAvailability.hasBoardSeatStatus) seatAvailability.boardStandardSeatStatus else SeatStatus.Unknown,
-            business = if (seatAvailability.hasBoardSeatStatus) seatAvailability.boardBusinessSeatStatus else SeatStatus.Unknown,
-            layoutProfile = layoutProfile,
-            hasBoardSeatStatus = seatAvailability.hasBoardSeatStatus,
-        )
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            SeatStatusSourceRow(
+                source = "OD",
+                standard = seatAvailability.standardSeatStatus,
+                business = seatAvailability.businessSeatStatus,
+                layoutProfile = layoutProfile,
+                hasBoardSeatStatus = true,
+            )
+            SeatStatusSourceRow(
+                source = "看板",
+                standard = if (seatAvailability.hasBoardSeatStatus) seatAvailability.boardStandardSeatStatus else SeatStatus.Unknown,
+                business = if (seatAvailability.hasBoardSeatStatus) seatAvailability.boardBusinessSeatStatus else SeatStatus.Unknown,
+                layoutProfile = layoutProfile,
+                hasBoardSeatStatus = seatAvailability.hasBoardSeatStatus,
+            )
+        }
     }
 }
 
@@ -545,7 +559,7 @@ private fun SeatStatusSourceRow(
             text = source,
             color = tokens.colors.textSecondary.copy(alpha = tokens.opacity.mutedText),
             style = tokens.typography.captionStrong,
-            modifier = Modifier.width(if (layoutProfile.isLargeFont) 34.dp else 28.dp),
+            modifier = Modifier.widthIn(min = if (layoutProfile.isLargeFont) 34.dp else 30.dp),
         )
         Row(
             modifier = Modifier.weight(1f),
@@ -585,7 +599,7 @@ private fun SeatStatusText(
     ) {
         Box(
             modifier = Modifier
-                .size(6.dp)
+                .size(tokens.sizes.statusDot)
                 .background(color = status.color(), shape = CircleShape),
         )
         Text(

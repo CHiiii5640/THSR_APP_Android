@@ -64,11 +64,12 @@ data class TrainLiveStatus(
 
 enum class TrainServiceState {
     NotDeparted,
-    DepartingSoon,
+    AboutToDepart,
+    Departing,
     InTransit,
-    ApproachingStation,
+    Approaching,
+    Arriving,
     DwellingAtStation,
-    DepartedStation,
     ArrivedDestination,
 }
 

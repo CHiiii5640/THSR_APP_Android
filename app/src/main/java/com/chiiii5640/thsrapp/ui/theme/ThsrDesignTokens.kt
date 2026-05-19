@@ -294,12 +294,12 @@ object ThsrDesignTokens {
     )
 
     val trainCard = ThsrTrainCardTokens(
-        collapsedBackground = Color(0xFF17191D),
-        expandedBackground = colors.deepCardColor,
+        collapsedBackground = Color(0xFF1B1D22),
+        expandedBackground = Color(0xFF1A2938),
         notificationHighlightBackground = Color(0xFF2B2117),
         notificationScheduledBackground = Color(0xFF18211B),
         collapsedBorder = Color.White.copy(alpha = 0.07f),
-        expandedBorder = colors.primaryBlue.copy(alpha = 0.16f),
+        expandedBorder = colors.primaryBlue.copy(alpha = 0.12f),
         notificationHighlightBorder = colors.warningOrange.copy(alpha = 0.18f),
         notificationScheduledBorder = colors.successGreen.copy(alpha = 0.14f),
         itemVerticalSpacing = 6.dp,

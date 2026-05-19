@@ -16,6 +16,7 @@ import com.chiiii5640.thsrapp.features.timetable.FallbackTimetableProvider
 import com.chiiii5640.thsrapp.features.timetable.TimetableTrain
 import com.chiiii5640.thsrapp.features.timetable.TimetableProvider
 import java.time.Clock
+import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
@@ -28,9 +29,10 @@ class SearchDashboardService(
     private val clock: Clock,
 ) {
     private val bookingWindowCalculator = BookingWindowCalculator(clock)
-    private val departingSoonWindowMinutes = 8L
-    private val departedPulseWindowMinutes = 2L
-    private val approachingWindowMinutes = 6L
+    private val aboutToDepartWindow = Duration.ofMinutes(2)
+    private val approachingWindow = Duration.ofSeconds(90)
+    private val arrivingWindow = Duration.ofSeconds(30)
+    private val departureBlendWindow = Duration.ofSeconds(12)
 
     suspend fun search(query: TripQuery): SearchResult {
         val primaryTimetable = timetableProvider.trains(query)
@@ -105,7 +107,6 @@ class SearchDashboardService(
                 liveStatus = deriveLiveStatus(
                     train = train,
                     travelDate = query.travelDate,
-                    bookingStatus = bookingStatus,
                 ),
             )
         }
@@ -119,7 +120,6 @@ class SearchDashboardService(
     private fun deriveLiveStatus(
         train: TimetableTrain,
         travelDate: LocalDate,
-        bookingStatus: BookingStatus,
     ): TrainLiveStatus {
         val resolvedStops = resolveStops(
             stops = train.stops,
@@ -140,17 +140,12 @@ class SearchDashboardService(
         val firstStation = resolvedStops.first()
         val lastStation = resolvedStops.last()
 
-        if (now.isBefore(firstDeparture.minusMinutes(departingSoonWindowMinutes))) {
-            val headline = when (bookingStatus) {
-                is BookingStatus.NotYetOpen -> "未發車"
-                BookingStatus.Available -> "未發車"
-                BookingStatus.Closed -> "已離站"
-            }
+        if (now.isBefore(firstDeparture.minus(aboutToDepartWindow))) {
             return TrainLiveStatus(
                 serviceState = TrainServiceState.NotDeparted,
                 summary = TimelineStatusSummary(
-                    headline = headline,
-                    detail = "預計 ${train.departureTime} 自 ${firstStation.station.localName} 發車",
+                    headline = "待命",
+                    detail = "${firstStation.station.localName} ${train.departureTime}",
                     currentStopIndex = firstStation.index,
                     nextStopIndex = firstStation.index,
                     activeSegmentIndex = null,
@@ -160,9 +155,9 @@ class SearchDashboardService(
 
         if (now.isBefore(firstDeparture)) {
             return TrainLiveStatus(
-                serviceState = TrainServiceState.DepartingSoon,
+                serviceState = TrainServiceState.AboutToDepart,
                 summary = TimelineStatusSummary(
-                    headline = "即將發車",
+                    headline = "準備發車",
                     detail = "${firstStation.station.localName} ${train.departureTime}",
                     currentStopIndex = firstStation.index,
                     nextStopIndex = firstStation.index,
@@ -176,27 +171,19 @@ class SearchDashboardService(
             val departure = stop.departure
 
             if (arrival != null && departure != null && !now.isBefore(arrival) && now.isBefore(departure)) {
+                val remainingSeconds = Duration.between(now, departure).seconds.coerceAtLeast(0)
                 return TrainLiveStatus(
                     serviceState = TrainServiceState.DwellingAtStation,
                     summary = TimelineStatusSummary(
                         headline = "停靠中",
-                        detail = stop.station.localName,
+                        detail = if (remainingSeconds > 0) {
+                            "${stop.station.localName} 剩餘 ${remainingSeconds}s"
+                        } else {
+                            stop.station.localName
+                        },
                         currentStopIndex = stop.index,
                         nextStopIndex = stop.index,
                         activeSegmentIndex = (index - 1).takeIf { it >= 0 },
-                    ),
-                )
-            }
-
-            if (departure != null && now.isAfter(departure) && now.isBefore(departure.plusMinutes(departedPulseWindowMinutes))) {
-                return TrainLiveStatus(
-                    serviceState = TrainServiceState.DepartedStation,
-                    summary = TimelineStatusSummary(
-                        headline = "已離站",
-                        detail = stop.station.localName,
-                        currentStopIndex = stop.index,
-                        nextStopIndex = (index + 1).takeIf { it <= lastStation.index },
-                        activeSegmentIndex = index.takeIf { it < resolvedStops.lastIndex },
                     ),
                 )
             }
@@ -211,12 +198,33 @@ class SearchDashboardService(
                 continue
             }
 
-            val isApproaching = !now.isBefore(arrival.minusMinutes(approachingWindowMinutes))
+            val segmentDuration = Duration.between(departure, arrival)
+            val departureWindow = cappedSegmentWindow(segmentDuration, fraction = 0.20, cap = departureBlendWindow)
+            val timeToArrival = Duration.between(now, arrival)
+            val arrivalLead = cappedSegmentWindow(segmentDuration, fraction = 0.28, cap = arrivingWindow)
+            val approachLead = cappedSegmentWindow(segmentDuration, fraction = 0.28, cap = approachingWindow)
+            val nextDisplayTime = (to.departure ?: to.arrival)?.toLocalTime() ?: train.arrivalTime
+            val serviceState = when {
+                now.isBefore(departure.plus(departureWindow)) -> TrainServiceState.Departing
+                timeToArrival <= arrivalLead -> TrainServiceState.Arriving
+                timeToArrival <= approachLead -> TrainServiceState.Approaching
+                else -> TrainServiceState.InTransit
+            }
             return TrainLiveStatus(
-                serviceState = if (isApproaching) TrainServiceState.ApproachingStation else TrainServiceState.InTransit,
+                serviceState = serviceState,
                 summary = TimelineStatusSummary(
-                    headline = if (isApproaching) "即將進站" else "行進中",
-                    detail = "${from.station.localName} -> ${to.station.localName}",
+                    headline = when (serviceState) {
+                        TrainServiceState.Departing -> "離站中"
+                        TrainServiceState.Arriving -> "進站中"
+                        TrainServiceState.Approaching -> "接近"
+                        else -> "行進中"
+                    },
+                    detail = when (serviceState) {
+                        TrainServiceState.Departing -> "${from.station.localName} 開出"
+                        TrainServiceState.Approaching,
+                        TrainServiceState.Arriving -> "${to.station.localName} $nextDisplayTime"
+                        else -> "下一站 ${to.station.localName} $nextDisplayTime"
+                    },
                     currentStopIndex = from.index,
                     nextStopIndex = to.index,
                     activeSegmentIndex = index,
@@ -224,12 +232,16 @@ class SearchDashboardService(
             )
         }
 
-        if (now.isAfter(lastArrival.minusMinutes(approachingWindowMinutes)) && now.isBefore(lastArrival)) {
+        if (now.isAfter(lastArrival.minus(approachingWindow)) && now.isBefore(lastArrival)) {
             return TrainLiveStatus(
-                serviceState = TrainServiceState.ApproachingStation,
+                serviceState = if (Duration.between(now, lastArrival) <= arrivingWindow) {
+                    TrainServiceState.Arriving
+                } else {
+                    TrainServiceState.Approaching
+                },
                 summary = TimelineStatusSummary(
-                    headline = "即將抵達終點",
-                    detail = lastStation.station.localName,
+                    headline = if (Duration.between(now, lastArrival) <= arrivingWindow) "進站中" else "接近",
+                    detail = "${lastStation.station.localName} ${train.arrivalTime}",
                     currentStopIndex = lastStation.index,
                     nextStopIndex = lastStation.index,
                     activeSegmentIndex = resolvedStops.lastIndex - 1,
@@ -241,7 +253,7 @@ class SearchDashboardService(
             TrainLiveStatus(
                 serviceState = TrainServiceState.ArrivedDestination,
                 summary = TimelineStatusSummary(
-                    headline = "已抵達終點",
+                    headline = "已抵達",
                     detail = lastStation.station.localName,
                     currentStopIndex = lastStation.index,
                     nextStopIndex = null,
@@ -251,6 +263,15 @@ class SearchDashboardService(
         } else {
             TrainLiveStatus.unresolved()
         }
+    }
+
+    private fun cappedSegmentWindow(
+        segmentDuration: Duration,
+        fraction: Double,
+        cap: Duration,
+    ): Duration {
+        val windowMillis = (segmentDuration.toMillis().coerceAtLeast(0L) * fraction).toLong()
+        return minOf(cap, Duration.ofMillis(windowMillis.coerceAtLeast(0L)))
     }
 
     private fun resolveStops(

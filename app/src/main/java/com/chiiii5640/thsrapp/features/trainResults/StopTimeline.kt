@@ -20,6 +20,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowForward
+import androidx.compose.material.icons.outlined.CheckCircleOutline
+import androidx.compose.material.icons.outlined.MyLocation
+import androidx.compose.material.icons.outlined.NearMe
+import androidx.compose.material.icons.outlined.PauseCircleOutline
+import androidx.compose.material.icons.outlined.RadioButtonChecked
+import androidx.compose.material3.Icon
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -41,6 +49,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -114,6 +123,7 @@ private enum class TimelineStatusTone {
 }
 
 private data class TimelineStatusPillState(
+    val icon: ImageVector,
     val title: String,
     val detail: String,
     val tone: TimelineStatusTone,
@@ -440,7 +450,7 @@ fun StopTimeline(
                 .height(visualMetrics.viewportHeight)
                 .clipToBounds(),
         ) {
-            val timelineHorizontalPaddingPx = with(density) { 6.dp.toPx() }
+            val timelineHorizontalPaddingPx = with(density) { 8.dp.toPx() }
             val viewportWidthPx = (with(density) { maxWidth.toPx() } - (timelineHorizontalPaddingPx * 2f))
                 .coerceAtLeast(0f)
             val layoutMetrics = remember(stops, density, layoutProfile, visualMetrics, viewportWidthPx) {
@@ -524,7 +534,7 @@ fun StopTimeline(
                 modifier = Modifier
                     .fillMaxWidth()
                     .fillMaxHeight()
-                    .padding(horizontal = 6.dp)
+                    .padding(horizontal = 8.dp)
                     .clipToBounds()
                     .pointerInput(anchorStopIndex, previousStopsRevealed, lockedOffsetPx) {
                         if (anchorStopIndex <= 0 || previousStopsRevealed) return@pointerInput
@@ -626,31 +636,27 @@ private fun TimelineStatusPill(
     Surface(
         color = tint.copy(alpha = 0.10f),
         shape = RoundedCornerShape(tokens.radii.chipRadius),
-        border = BorderStroke(1.dp, tint.copy(alpha = 0.18f)),
+        border = BorderStroke(1.dp, tint.copy(alpha = 0.22f)),
         tonalElevation = 0.dp,
     ) {
         Box(
             modifier = Modifier.padding(
-                horizontal = tokens.spacing.spacing12,
-                vertical = 6.dp,
+                horizontal = 9.dp,
+                vertical = 5.dp,
             ),
         ) {
             androidx.compose.foundation.layout.Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                Box(
+                Icon(
+                    imageVector = pill.icon,
+                    contentDescription = null,
+                    tint = tint.copy(alpha = 0.95f),
                     modifier = Modifier
-                        .size(6.dp)
-                        .offset(y = 1.dp)
-                        .alpha(0.92f)
-                        .width(6.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Canvas(modifier = Modifier.size(6.dp)) {
-                        drawCircle(color = tint)
-                    }
-                }
+                        .size(12.dp)
+                        .offset(y = 0.5.dp),
+                )
                 Text(
                     text = pill.title,
                     color = tint,
@@ -1036,26 +1042,15 @@ private fun buildTimelineLayout(
         widestLabelWidthPx * if (fontScale >= 1.2f) 1.24f else 1.14f,
         max(nodeContainerPx * 1.42f, nodeWidthPx * 1.20f),
     )
-    val minSegmentWidthPx = max(unitWidthPx * if (layoutProfile.isLargeFont) 2.4f else 2.2f, minReadableSpacingPx)
-    val segmentWeights = List(segmentCount) { index ->
-        abs(stops[index + 1].station.sortIndex - stops[index].station.sortIndex)
+    val minSegmentWidthPx = max(
+        unitWidthPx * if (layoutProfile.isLargeFont) 2.4f else 2.2f,
+        minReadableSpacingPx,
+    )
+    val segmentWidthsPx = List(segmentCount) { index ->
+        val stationGap = abs(stops[index + 1].station.sortIndex - stops[index].station.sortIndex)
             .coerceAtLeast(1)
-            .toFloat()
+        max(minSegmentWidthPx, stationGap * unitWidthPx)
     }
-    val minTrackWidthPx = minSegmentWidthPx * segmentCount
-    val targetTrackWidthPx = max(0f, viewportWidthPx - leadingInsetPx - trailingInsetPx)
-        .coerceAtLeast(minTrackWidthPx)
-    val averageSegmentWidthPx = if (segmentCount > 0) targetTrackWidthPx / segmentCount else minSegmentWidthPx
-    val maxSegmentWidthPx = max(
-        minSegmentWidthPx + (unitWidthPx * 3.2f),
-        averageSegmentWidthPx * 1.7f,
-    )
-    val segmentWidthsPx = distributeSegmentWidths(
-        weights = segmentWeights,
-        targetTrackWidthPx = targetTrackWidthPx,
-        minSegmentWidthPx = minSegmentWidthPx,
-        maxSegmentWidthPx = maxSegmentWidthPx,
-    )
     var currentCenterXPx = leadingInsetPx
     val nodeCenters = mutableListOf(currentCenterXPx)
     val segments = mutableListOf<TimelineSegmentMetrics>()
@@ -1081,57 +1076,6 @@ private fun buildTimelineLayout(
         segments = segments,
         totalWidthPx = max(viewportWidthPx, trackContentWidthPx),
     )
-}
-
-private fun distributeSegmentWidths(
-    weights: List<Float>,
-    targetTrackWidthPx: Float,
-    minSegmentWidthPx: Float,
-    maxSegmentWidthPx: Float,
-): List<Float> {
-    if (weights.isEmpty()) return emptyList()
-
-    val widths = MutableList(weights.size) { minSegmentWidthPx }
-    var remainingExtraPx = (targetTrackWidthPx - (minSegmentWidthPx * weights.size)).coerceAtLeast(0f)
-    if (remainingExtraPx <= 0f) {
-        return widths
-    }
-
-    val remainingIndices = weights.indices.toMutableSet()
-    while (remainingExtraPx > 0.5f && remainingIndices.isNotEmpty()) {
-        var distributedThisPassPx = 0f
-        var remainingWeight = 0f
-        remainingIndices.forEach { index -> remainingWeight += weights[index] }
-        val safeWeight = remainingWeight.coerceAtLeast(0.0001f)
-        val saturatedIndices = mutableListOf<Int>()
-
-        remainingIndices.forEach { index ->
-            val sharePx = remainingExtraPx * (weights[index] / safeWeight)
-            val capacityPx = (maxSegmentWidthPx - widths[index]).coerceAtLeast(0f)
-            val appliedPx = min(sharePx, capacityPx)
-            widths[index] += appliedPx
-            distributedThisPassPx += appliedPx
-            if (capacityPx - appliedPx <= 0.5f) {
-                saturatedIndices += index
-            }
-        }
-
-        if (distributedThisPassPx <= 0.5f) {
-            break
-        }
-
-        remainingExtraPx -= distributedThisPassPx
-        remainingIndices.removeAll(saturatedIndices)
-    }
-
-    if (remainingExtraPx > 0.5f) {
-        val fallbackExtraPx = remainingExtraPx / widths.size
-        for (index in widths.indices) {
-            widths[index] += fallbackExtraPx
-        }
-    }
-
-    return widths
 }
 
 private fun timelineVisualMetrics(layoutProfile: ThsrLayoutProfile): TimelineVisualMetrics = when {
@@ -1557,36 +1501,42 @@ private class TimelineLiveState private constructor(
 
         return when (resolvedPhase.phase) {
             TimelineSemanticPhase.NotDeparted -> TimelineStatusPillState(
+                icon = Icons.Outlined.PauseCircleOutline,
                 title = "待命",
                 detail = "${originStop.station.localName} ${ThsrFormatters.displayTimetableTime(originStop.displayTime)}",
                 tone = TimelineStatusTone.Blue,
             )
 
             TimelineSemanticPhase.AboutToDepart -> TimelineStatusPillState(
+                icon = Icons.Outlined.RadioButtonChecked,
                 title = "準備發車",
                 detail = "${originStop.station.localName} ${ThsrFormatters.displayTimetableTime(originStop.displayTime)}",
                 tone = TimelineStatusTone.Cyan,
             )
 
             TimelineSemanticPhase.Departing -> TimelineStatusPillState(
+                icon = Icons.AutoMirrored.Outlined.ArrowForward,
                 title = "離站中",
                 detail = "${currentStop?.station?.localName ?: originStop.station.localName} 開出",
                 tone = TimelineStatusTone.Cyan,
             )
 
             TimelineSemanticPhase.InTransit -> TimelineStatusPillState(
+                icon = Icons.AutoMirrored.Outlined.ArrowForward,
                 title = "行進中",
                 detail = "下一站 ${nextStop?.station?.localName ?: destinationStop.station.localName} ${nextStop?.let { ThsrFormatters.displayTimetableTime(it.displayTime) } ?: ""}".trim(),
                 tone = TimelineStatusTone.Blue,
             )
 
             TimelineSemanticPhase.Approaching -> TimelineStatusPillState(
+                icon = Icons.Outlined.NearMe,
                 title = "接近",
                 detail = "${nextStop?.station?.localName ?: destinationStop.station.localName} ${nextStop?.let { ThsrFormatters.displayTimetableTime(it.displayTime) } ?: ""}".trim(),
                 tone = TimelineStatusTone.Blue,
             )
 
             TimelineSemanticPhase.Arriving -> TimelineStatusPillState(
+                icon = Icons.Outlined.MyLocation,
                 title = "進站中",
                 detail = "${nextStop?.station?.localName ?: destinationStop.station.localName} ${nextStop?.let { ThsrFormatters.displayTimetableTime(it.displayTime) } ?: ""}".trim(),
                 tone = TimelineStatusTone.Amber,
@@ -1597,6 +1547,7 @@ private class TimelineLiveState private constructor(
                 val departure = stop.departure ?: stop.arrival?.plusSeconds(stop.dwellSeconds)
                 val remaining = departure?.let { Duration.between(now, it).seconds.coerceAtLeast(0) } ?: 0
                 TimelineStatusPillState(
+                    icon = Icons.Outlined.RadioButtonChecked,
                     title = "停靠中",
                     detail = if (remaining > 0) "${stop.station.localName} 剩餘 ${remaining}s" else stop.station.localName,
                     tone = TimelineStatusTone.Cyan,
@@ -1604,6 +1555,7 @@ private class TimelineLiveState private constructor(
             }
 
             TimelineSemanticPhase.Arrived -> TimelineStatusPillState(
+                icon = Icons.Outlined.CheckCircleOutline,
                 title = "已抵達",
                 detail = destinationStop.station.localName,
                 tone = TimelineStatusTone.Blue,
