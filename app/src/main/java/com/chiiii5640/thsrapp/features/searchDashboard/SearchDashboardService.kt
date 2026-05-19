@@ -34,7 +34,7 @@ class SearchDashboardService(
 
     suspend fun search(query: TripQuery): SearchResult {
         val primaryTimetable = timetableProvider.trains(query)
-        val fallbackTimetable = if (primaryTimetable.trains.isEmpty()) {
+        val fallbackTimetable = if (primaryTimetable.trains.isEmpty() && primaryTimetable.allowsFeedFallback) {
             ThsrLog.i("primary timetable empty, trying feed fallback for ${query.origin.localName}-${query.destination.localName} ${query.travelDate} ${query.departureAfter}")
             fallbackTimetableProvider?.trains(query, query.forceRefresh)
         } else {

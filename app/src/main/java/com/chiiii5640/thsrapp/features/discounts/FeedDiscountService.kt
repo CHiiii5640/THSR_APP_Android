@@ -133,18 +133,13 @@ class FeedDiscountService(
             .mapNotNull { rule ->
                 val departureTime = rule.departureLocalTime()
                 if (departureTime.isBefore(query.departureAfter)) return@mapNotNull null
-                val inferredArrivalTime = inferArrivalTimeForFallbackDestination(
-                    direction = direction,
-                    destination = query.destination,
-                    listedTime = departureTime,
-                )
                 TimetableTrain(
                     trainNo = rule.trainNumber.padStart(4, '0'),
                     departureTime = departureTime,
-                    arrivalTime = inferredArrivalTime,
+                    arrivalTime = departureTime,
                     stops = listOf(
                         TimelineStop(query.origin, arrivalTime = null, departureTime = departureTime),
-                        TimelineStop(query.destination, arrivalTime = inferredArrivalTime, departureTime = null),
+                        TimelineStop(query.destination, arrivalTime = departureTime, departureTime = null),
                     ),
                 )
             }
@@ -187,47 +182,20 @@ class FeedDiscountService(
         }
         if (rawStops.isEmpty()) return null
 
-        val stops = rawStops.mapIndexed { index, (station, listedTime) ->
-            val isRouteFirst = index == 0
-            val isRouteLast = index == rawStops.lastIndex
+        val stops = rawStops.map { (station, listedTime) ->
             TimelineStop(
                 station = station,
-                arrivalTime = when {
-                    isRouteFirst -> null
-                    isRouteLast -> listedTime
-                    else -> listedTime.minusMinutes(1)
-                },
-                departureTime = when {
-                    isRouteLast -> null
-                    else -> listedTime
-                },
+                arrivalTime = null,
+                departureTime = listedTime,
             )
         }
-
-        val destinationTime = stops
-            .firstOrNull { it.station == query.destination }
-            ?.arrivalTime
-            ?: destinationListedTime
 
         return TimetableTrain(
             trainNo = rule.trainNumber.padStart(4, '0'),
             departureTime = originTime,
-            arrivalTime = destinationTime,
+            arrivalTime = destinationListedTime,
             stops = stops,
         )
-    }
-
-    private fun inferArrivalTimeForFallbackDestination(
-        direction: String,
-        destination: Station,
-        listedTime: LocalTime,
-    ): LocalTime {
-        val routeTerminal = when (direction) {
-            "南下" -> Station.Zuoying
-            "北上" -> Station.Nangang
-            else -> destination
-        }
-        return if (destination == routeTerminal) listedTime else listedTime.minusMinutes(1)
     }
 
     private fun offersForTrain(feed: DiscountFeed, date: LocalDate, train: TimetableTrain): List<DiscountOffer> {

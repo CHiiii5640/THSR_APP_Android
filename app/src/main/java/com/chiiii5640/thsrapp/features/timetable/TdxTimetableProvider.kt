@@ -33,6 +33,7 @@ class TdxTimetableProvider(
                 trains = daily.mapNotNull { it.toTimetableTrain(query) },
                 status = SourceStatus("TDX DailyTimetable live", SourceState.Live),
                 usedSupplyDateFallback = false,
+                allowsFeedFallback = false,
             )
         }
 
@@ -43,21 +44,33 @@ class TdxTimetableProvider(
                 trains = general.mapNotNull { it.toTimetableTrain(query) },
                 status = SourceStatus("TDX GeneralTimetable fallback", SourceState.Fallback),
                 usedSupplyDateFallback = true,
+                allowsFeedFallback = false,
             )
         }
 
         val persisted = runCatching { persistedStore.read() }.getOrNull().orEmpty()
+        if (persisted.isNotEmpty()) {
+            return TimetableResult(
+                trains = persisted.mapNotNull { it.toTimetableTrain(query) },
+                status = SourceStatus("persisted GeneralTimetable fallback", SourceState.Fallback),
+                usedSupplyDateFallback = true,
+                allowsFeedFallback = false,
+            )
+        }
+
+        val primaryFailure = generalResult.exceptionOrNull() ?: dailyResult.exceptionOrNull()
         return TimetableResult(
-            trains = persisted.mapNotNull { it.toTimetableTrain(query) },
-            status = if (persisted.isEmpty()) {
+            trains = emptyList(),
+            status = if (primaryFailure == null) {
+                SourceStatus("TDX no matching trains", SourceState.Unavailable)
+            } else {
                 unavailableStatus(
                     defaultLabel = "timetable unavailable",
-                    throwable = generalResult.exceptionOrNull() ?: dailyResult.exceptionOrNull(),
+                    throwable = primaryFailure,
                 )
-            } else {
-                SourceStatus("persisted GeneralTimetable fallback", SourceState.Fallback)
             },
-            usedSupplyDateFallback = persisted.isNotEmpty(),
+            usedSupplyDateFallback = false,
+            allowsFeedFallback = primaryFailure == null,
         )
     }
 

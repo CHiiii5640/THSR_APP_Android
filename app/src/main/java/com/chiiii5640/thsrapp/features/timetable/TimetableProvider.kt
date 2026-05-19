@@ -13,6 +13,7 @@ data class TimetableResult(
     val trains: List<TimetableTrain>,
     val status: SourceStatus,
     val usedSupplyDateFallback: Boolean,
+    val allowsFeedFallback: Boolean = false,
 )
 
 data class TimetableTrain(
