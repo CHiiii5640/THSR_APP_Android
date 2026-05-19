@@ -759,30 +759,3 @@ private fun TrainOption.sourceUrl(): String {
         else -> "$base/DailyTimetable/TrainDate/$travelDate?${'$'}format=JSON"
     }
 }
-
-private fun TrainOption.compactStatusLabel(): String {
-    val currentStation = liveStatus.summary.currentStopIndex?.let(stops::getOrNull)?.station?.localName
-    val nextStation = liveStatus.summary.nextStopIndex?.let(stops::getOrNull)?.station?.localName
-    return when (liveStatus.serviceState) {
-        com.chiiii5640.thsrapp.core.model.TrainServiceState.NotDeparted ->
-            "未發車 · ${origin.localName} ${ThsrFormatters.displayTimetableTime(departureTime)}"
-
-        com.chiiii5640.thsrapp.core.model.TrainServiceState.DepartingSoon ->
-            "即將發車 · ${origin.localName}"
-
-        com.chiiii5640.thsrapp.core.model.TrainServiceState.InTransit ->
-            nextStation?.let { "行進中 · 下一站 $it" } ?: "行進中"
-
-        com.chiiii5640.thsrapp.core.model.TrainServiceState.ApproachingStation ->
-            (nextStation ?: destination.localName).let { "即將進站 · $it" }
-
-        com.chiiii5640.thsrapp.core.model.TrainServiceState.DwellingAtStation ->
-            (currentStation ?: origin.localName).let { "停靠中 · $it" }
-
-        com.chiiii5640.thsrapp.core.model.TrainServiceState.DepartedStation ->
-            nextStation?.let { "已離站 · 前往 $it" } ?: "已離站"
-
-        com.chiiii5640.thsrapp.core.model.TrainServiceState.ArrivedDestination ->
-            "已抵達 · ${destination.localName}"
-    }
-}
