@@ -63,6 +63,7 @@ import kotlinx.coroutines.isActive
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.roundToInt
 
@@ -127,9 +128,12 @@ private data class TimelineResolvedStop(
 
 private data class TimelineSegmentMetrics(
     val index: Int,
-    val startXPx: Float,
+    val startCenterXPx: Float,
+    val endCenterXPx: Float,
     val widthPx: Float,
-)
+) {
+    fun position(progress: Float): Float = lerp(startCenterXPx, endCenterXPx, progress.clamp01())
+}
 
 private data class TimelineLayoutMetrics(
     val leadingInsetPx: Float,
@@ -139,6 +143,8 @@ private data class TimelineLayoutMetrics(
     val totalWidthPx: Float,
 ) {
     fun nodeCenterPx(index: Int): Float = nodeCentersPx.getOrElse(index) { 0f }
+
+    fun segment(index: Int): TimelineSegmentMetrics? = segments.getOrNull(index)
 
     fun maxOffsetPx(viewportWidthPx: Float): Float = max(0f, totalWidthPx - viewportWidthPx)
 }
@@ -379,12 +385,13 @@ fun StopTimeline(
                 .clipToBounds(),
         ) {
             val viewportWidthPx = with(density) { maxWidth.toPx() }
-            val layoutMetrics = remember(stops, density, layoutProfile, visualMetrics) {
+            val layoutMetrics = remember(stops, density, layoutProfile, visualMetrics, viewportWidthPx) {
                 buildTimelineLayout(
                     stops = stops,
                     layoutProfile = layoutProfile,
                     visualMetrics = visualMetrics,
                     density = density,
+                    viewportWidthPx = viewportWidthPx,
                 )
             }
             val anchorStopIndex = originStopIndex.coerceIn(0, stops.lastIndex)
@@ -558,7 +565,7 @@ private fun TimelineRailCanvas(
             drawRoundRect(
                 color = baseTrackColor.copy(alpha = baseTrackColor.alpha * segmentOpacity),
                 topLeft = Offset(
-                    x = segment.startXPx,
+                    x = segment.startCenterXPx,
                     y = canvasMetrics.trackYPx - (canvasMetrics.baseLineHeightPx / 2f),
                 ),
                 size = Size(segment.widthPx, canvasMetrics.baseLineHeightPx),
@@ -583,11 +590,11 @@ private fun TimelineRailCanvas(
                         accent.copy(alpha = 0.54f * segmentOpacity),
                         accent.copy(alpha = 0.82f * segmentOpacity),
                     ),
-                    startX = segment.startXPx,
-                    endX = segment.startXPx + fillWidthPx,
+                    startX = segment.startCenterXPx,
+                    endX = segment.startCenterXPx + fillWidthPx,
                 ),
                 topLeft = Offset(
-                    x = segment.startXPx,
+                    x = segment.startCenterXPx,
                     y = canvasMetrics.trackYPx - (canvasMetrics.activeLineHeightPx / 2f),
                 ),
                 size = Size(fillWidthPx, canvasMetrics.activeLineHeightPx),
@@ -597,7 +604,7 @@ private fun TimelineRailCanvas(
             drawRoundRect(
                 color = accent.copy(alpha = 0.10f * segmentOpacity),
                 topLeft = Offset(
-                    x = segment.startXPx,
+                    x = segment.startCenterXPx,
                     y = canvasMetrics.trackYPx - (canvasMetrics.activeLineHeightPx / 2f) - 0.8f,
                 ),
                 size = Size(fillWidthPx, canvasMetrics.activeLineHeightPx + 1.6f),
@@ -607,7 +614,7 @@ private fun TimelineRailCanvas(
             drawRoundRect(
                 color = idleGlowColor.copy(alpha = idleGlowColor.alpha * segmentOpacity),
                 topLeft = Offset(
-                    x = segment.startXPx,
+                    x = segment.startCenterXPx,
                     y = canvasMetrics.trackYPx - (canvasMetrics.baseLineHeightPx / 2f),
                 ),
                 size = Size(fillWidthPx, canvasMetrics.baseLineHeightPx),
@@ -772,34 +779,116 @@ private fun buildTimelineLayout(
     layoutProfile: ThsrLayoutProfile,
     visualMetrics: TimelineVisualMetrics,
     density: Density,
+    viewportWidthPx: Float,
 ): TimelineLayoutMetrics {
     val leadingInsetPx = with(density) { visualMetrics.leadingInset.toPx() }
     val trailingInsetPx = with(density) { visualMetrics.trailingInset.toPx() }
+    val widestLabelWidthPx = with(density) { (visualMetrics.labelWidth + 8.dp).toPx() }
+    val nodeContainerPx = with(density) { visualMetrics.nodeContainer.toPx() }
+    val nodeWidthPx = with(density) { layoutProfile.timelineNodeWidth.toPx() }
     val unitWidthPx = with(density) { layoutProfile.timelineSegmentUnitWidth.toPx() }
-    val minSegmentWidthPx = unitWidthPx * 2.35f
-    var currentXPx = leadingInsetPx
-    val nodeCenters = mutableListOf(currentXPx)
+    val segmentCount = stops.lastIndex
+    val fontScale = density.fontScale
+    val minReadableSpacingPx = max(
+        widestLabelWidthPx * if (fontScale >= 1.2f) 1.24f else 1.14f,
+        max(nodeContainerPx * 1.42f, nodeWidthPx * 1.20f),
+    )
+    val minSegmentWidthPx = max(unitWidthPx * if (layoutProfile.isLargeFont) 2.4f else 2.2f, minReadableSpacingPx)
+    val segmentWeights = List(segmentCount) { index ->
+        abs(stops[index + 1].station.sortIndex - stops[index].station.sortIndex)
+            .coerceAtLeast(1)
+            .toFloat()
+    }
+    val minTrackWidthPx = minSegmentWidthPx * segmentCount
+    val targetTrackWidthPx = max(0f, viewportWidthPx - leadingInsetPx - trailingInsetPx)
+        .coerceAtLeast(minTrackWidthPx)
+    val averageSegmentWidthPx = if (segmentCount > 0) targetTrackWidthPx / segmentCount else minSegmentWidthPx
+    val maxSegmentWidthPx = max(
+        minSegmentWidthPx + (unitWidthPx * 3.2f),
+        averageSegmentWidthPx * 1.7f,
+    )
+    val segmentWidthsPx = distributeSegmentWidths(
+        weights = segmentWeights,
+        targetTrackWidthPx = targetTrackWidthPx,
+        minSegmentWidthPx = minSegmentWidthPx,
+        maxSegmentWidthPx = maxSegmentWidthPx,
+    )
+    var currentCenterXPx = leadingInsetPx
+    val nodeCenters = mutableListOf(currentCenterXPx)
     val segments = mutableListOf<TimelineSegmentMetrics>()
 
-    for (index in 0 until stops.lastIndex) {
-        val gap = abs(stops[index + 1].station.sortIndex - stops[index].station.sortIndex).coerceAtLeast(1)
-        val widthPx = max(unitWidthPx * gap, minSegmentWidthPx)
+    segmentWidthsPx.forEachIndexed { index, widthPx ->
+        val nextCenterXPx = currentCenterXPx + widthPx
         segments += TimelineSegmentMetrics(
             index = index,
-            startXPx = currentXPx,
+            startCenterXPx = currentCenterXPx,
+            endCenterXPx = nextCenterXPx,
             widthPx = widthPx,
         )
-        currentXPx += widthPx
-        nodeCenters += currentXPx
+        currentCenterXPx = nextCenterXPx
+        nodeCenters += currentCenterXPx
     }
+
+    val trackContentWidthPx = currentCenterXPx + trailingInsetPx
 
     return TimelineLayoutMetrics(
         leadingInsetPx = leadingInsetPx,
         trailingInsetPx = trailingInsetPx,
         nodeCentersPx = nodeCenters,
         segments = segments,
-        totalWidthPx = currentXPx + trailingInsetPx,
+        totalWidthPx = max(viewportWidthPx, trackContentWidthPx),
     )
+}
+
+private fun distributeSegmentWidths(
+    weights: List<Float>,
+    targetTrackWidthPx: Float,
+    minSegmentWidthPx: Float,
+    maxSegmentWidthPx: Float,
+): List<Float> {
+    if (weights.isEmpty()) return emptyList()
+
+    val widths = MutableList(weights.size) { minSegmentWidthPx }
+    var remainingExtraPx = (targetTrackWidthPx - (minSegmentWidthPx * weights.size)).coerceAtLeast(0f)
+    if (remainingExtraPx <= 0f) {
+        return widths
+    }
+
+    val remainingIndices = weights.indices.toMutableSet()
+    while (remainingExtraPx > 0.5f && remainingIndices.isNotEmpty()) {
+        var distributedThisPassPx = 0f
+        var remainingWeight = 0f
+        remainingIndices.forEach { index -> remainingWeight += weights[index] }
+        val safeWeight = remainingWeight.coerceAtLeast(0.0001f)
+        val saturatedIndices = mutableListOf<Int>()
+
+        remainingIndices.forEach { index ->
+            val sharePx = remainingExtraPx * (weights[index] / safeWeight)
+            val capacityPx = (maxSegmentWidthPx - widths[index]).coerceAtLeast(0f)
+            val appliedPx = min(sharePx, capacityPx)
+            widths[index] += appliedPx
+            distributedThisPassPx += appliedPx
+            if (capacityPx - appliedPx <= 0.5f) {
+                saturatedIndices += index
+            }
+        }
+
+        if (distributedThisPassPx <= 0.5f) {
+            break
+        }
+
+        remainingExtraPx -= distributedThisPassPx
+        remainingIndices.removeAll(saturatedIndices)
+    }
+
+    if (remainingExtraPx > 0.5f) {
+        val fallbackExtraPx = remainingExtraPx / widths.size
+        for (index in widths.indices) {
+            widths[index] += fallbackExtraPx
+        }
+    }
+
+    return widths
 }
 
 private fun timelineVisualMetrics(layoutProfile: ThsrLayoutProfile): TimelineVisualMetrics = when {
@@ -1353,10 +1442,9 @@ private class TimelineLiveState private constructor(
         activeSegmentProgress()?.let { progress ->
             val phase = resolvedPhase.motionPhase ?: progress.motionPhase
             val transitIndex = progress.segmentIndex
-            val startXPx = layout.nodeCenterPx(transitIndex)
-            val endXPx = layout.nodeCenterPx(transitIndex + 1)
+            val segment = layout.segment(transitIndex) ?: return null
             return TimelineMarkerVisual(
-                centerXPx = lerp(startXPx, endXPx, progress.easedProgress),
+                centerXPx = segment.position(progress.easedProgress),
                 phase = phase,
                 motion = motionMetrics(
                     phase = phase,
