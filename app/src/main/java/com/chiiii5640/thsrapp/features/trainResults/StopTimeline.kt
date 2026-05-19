@@ -1106,8 +1106,16 @@ private fun DrawScope.drawTimelineMarker(
     val headWidthPx = marker.motion.headWidthPx * scale
     val headHeightPx = marker.motion.headHeightPx * (1f + (0.008f * wave))
     val tailWidthPx = marker.motion.tailWidthPx
-    val markerVerticalCorrectionPx = 6.dp.toPx()
-    val centerYPx = canvasMetrics.trackYPx - markerVerticalCorrectionPx
+    val markerRailOverlapPx = max(
+        canvasMetrics.activeLineHeightPx * 1.15f,
+        headHeightPx * when (marker.phase) {
+            TimelineTrainPhase.Departing -> 0.28f
+            TimelineTrainPhase.InTransit -> 0.24f
+            TimelineTrainPhase.Approaching -> 0.26f
+            TimelineTrainPhase.Docked -> 0.30f
+        },
+    )
+    val centerYPx = canvasMetrics.trackYPx - ((headHeightPx / 2f) - markerRailOverlapPx)
     val headLeftPx = marker.centerXPx - (headWidthPx / 2f)
     val headTopPx = centerYPx - (headHeightPx / 2f)
     val tailHeightPx = headHeightPx * 0.70f
