@@ -59,6 +59,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.chiiii5640.thsrapp.core.model.Station
 import com.chiiii5640.thsrapp.core.model.TimelineStop
 import com.chiiii5640.thsrapp.core.model.TimelineStopRole
@@ -1018,26 +1019,61 @@ private fun TimelineNode(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
+        val isIntermediateStop = stop.role == TimelineStopRole.Intermediate
         val labelTransfer = if (emphasized) {
             max(activeTransfer, 0.54f)
         } else {
             activeTransfer
         }.clamp01()
+        val timeBaseStyle = if (emphasized) {
+            if (isIntermediateStop) {
+                tokens.typography.timelineTime.copy(fontSize = 11.5.sp, lineHeight = 14.sp, fontWeight = FontWeight.SemiBold)
+            } else {
+                tokens.typography.timelineTime.copy(fontSize = 13.5.sp, lineHeight = 16.sp, fontWeight = FontWeight.SemiBold)
+            }
+        } else if (isIntermediateStop) {
+            tokens.typography.timelineTime.copy(fontSize = 10.5.sp, lineHeight = 13.sp, fontWeight = FontWeight.Medium)
+        } else {
+            tokens.typography.timelineTime.copy(fontSize = 13.sp, lineHeight = 16.sp, fontWeight = FontWeight.SemiBold)
+        }
+        val stationBaseStyle = if (emphasized) {
+            if (isIntermediateStop) {
+                tokens.typography.timelineStation.copy(fontSize = 10.5.sp, lineHeight = 13.sp, fontWeight = FontWeight.SemiBold)
+            } else {
+                tokens.typography.timelineStation.copy(fontSize = 11.5.sp, lineHeight = 14.sp, fontWeight = FontWeight.SemiBold)
+            }
+        } else if (isIntermediateStop) {
+            tokens.typography.timelineStation.copy(fontSize = 10.sp, lineHeight = 13.sp, fontWeight = FontWeight.Normal)
+        } else {
+            tokens.typography.timelineStation.copy(fontSize = 11.5.sp, lineHeight = 14.sp, fontWeight = FontWeight.Normal)
+        }
+        val timeEmphasisStyle = if (isIntermediateStop) {
+            tokens.typography.timelineTime.copy(fontSize = 11.8.sp, lineHeight = 14.sp, fontWeight = FontWeight.SemiBold)
+        } else {
+            tokens.typography.timelineTime.copy(fontSize = 13.8.sp, lineHeight = 16.sp, fontWeight = FontWeight.SemiBold)
+        }
+        val stationEmphasisStyle = if (isIntermediateStop) {
+            tokens.typography.timelineStation.copy(fontSize = 10.7.sp, lineHeight = 13.sp, fontWeight = FontWeight.SemiBold)
+        } else {
+            tokens.typography.timelineStation.copy(fontSize = 11.7.sp, lineHeight = 14.sp, fontWeight = FontWeight.SemiBold)
+        }
+        val timeRoleOpacityBias = if (isIntermediateStop) 0.78f else 1f
+        val stationRoleOpacityBias = if (isIntermediateStop) 0.74f else 1f
         TimelineNodeLabelText(
             text = stop.displayTime(),
-            baseColor = nodePalette.timeColor.copy(alpha = nodePalette.timeColor.alpha * 0.88f),
-            emphasisColor = nodePalette.timeColor,
-            style = tokens.typography.timelineTime,
-            baseWeight = if (stop.role == TimelineStopRole.Intermediate) FontWeight.Medium else FontWeight.SemiBold,
+            baseColor = nodePalette.timeColor.copy(alpha = nodePalette.timeColor.alpha * 0.88f * timeRoleOpacityBias),
+            emphasisColor = nodePalette.timeColor.copy(alpha = nodePalette.timeColor.alpha * timeRoleOpacityBias),
+            baseStyle = timeBaseStyle,
+            emphasisStyle = timeEmphasisStyle,
             emphasisAlpha = 0.88f * labelTransfer,
             overflow = TextOverflow.Clip,
         )
         TimelineNodeLabelText(
             text = stop.station.localName,
-            baseColor = nodePalette.stationColor.copy(alpha = nodePalette.stationColor.alpha * 0.88f),
-            emphasisColor = nodePalette.stationColor,
-            style = tokens.typography.timelineStation,
-            baseWeight = FontWeight.Normal,
+            baseColor = nodePalette.stationColor.copy(alpha = nodePalette.stationColor.alpha * 0.88f * stationRoleOpacityBias),
+            emphasisColor = nodePalette.stationColor.copy(alpha = nodePalette.stationColor.alpha * stationRoleOpacityBias),
+            baseStyle = stationBaseStyle,
+            emphasisStyle = stationEmphasisStyle,
             emphasisAlpha = 0.82f * labelTransfer,
             overflow = TextOverflow.Ellipsis,
         )
@@ -1049,8 +1085,8 @@ private fun TimelineNodeLabelText(
     text: String,
     baseColor: Color,
     emphasisColor: Color,
-    style: TextStyle,
-    baseWeight: FontWeight,
+    baseStyle: TextStyle,
+    emphasisStyle: TextStyle,
     emphasisAlpha: Float,
     overflow: TextOverflow,
 ) {
@@ -1061,14 +1097,14 @@ private fun TimelineNodeLabelText(
         Text(
             text = text,
             color = baseColor,
-            style = style.copy(fontWeight = baseWeight),
+            style = baseStyle,
             maxLines = 1,
             overflow = overflow,
         )
         Text(
             text = text,
             color = emphasisColor.copy(alpha = (emphasisColor.alpha * emphasisAlpha).coerceIn(0f, 1f)),
-            style = style.copy(fontWeight = FontWeight.SemiBold),
+            style = emphasisStyle,
             maxLines = 1,
             overflow = overflow,
         )
@@ -1639,6 +1675,8 @@ private fun timelinePulseWave(
     return cosine * cosine * (3f - (2f * cosine))
 }
 
+private fun Duration.preciseSeconds(): Double = seconds.toDouble() + (nano.toDouble() / 1_000_000_000.0)
+
 private fun TimelineStop.displayTime(): String =
     when (role) {
         TimelineStopRole.Destination ->
@@ -2027,11 +2065,11 @@ private class TimelineLiveState private constructor(
             if (resolvedPhase.phase == TimelineSemanticPhase.Stopped) {
                 val arrival = stops[stoppedIndex].stationTime
                 val departure = stationDepartureTime(stoppedIndex)
-                val elapsedSeconds = Duration.between(arrival, now).seconds.coerceAtLeast(0).toFloat()
-                val remainingSeconds = Duration.between(now, departure).seconds.coerceAtLeast(0).toFloat()
-                val settleProgress = railBlend(elapsedSeconds / dockBlendDuration.seconds.toFloat())
+                val elapsedSeconds = Duration.between(arrival, now).preciseSeconds().coerceAtLeast(0.0).toFloat()
+                val remainingSeconds = Duration.between(now, departure).preciseSeconds().coerceAtLeast(0.0).toFloat()
+                val settleProgress = railBlend(elapsedSeconds / dockBlendDuration.preciseSeconds().toFloat())
                 val settledOpacity = 1f - (0.22f * settleProgress)
-                val departureProgress = railBlend(1f - (remainingSeconds / departureBlendWindow.seconds.toFloat()))
+                val departureProgress = railBlend(1f - (remainingSeconds / departureBlendWindow.preciseSeconds().toFloat()))
                 val opacity = settledOpacity + ((0.92f - settledOpacity) * departureProgress)
                 return TimelineMarkerVisual(
                     centerXPx = layout.nodeCenterPx(stoppedIndex),
@@ -2099,11 +2137,11 @@ private class TimelineLiveState private constructor(
 
         activeSegmentProgress()?.let { progress ->
             val remainingSeconds = Duration.between(now, nextStopDisplayDateTime(progress.segmentIndex + 1))
-                .seconds
-                .coerceAtLeast(0)
+                .preciseSeconds()
+                .coerceAtLeast(0.0)
             val phase = when {
                 progress.motionPhase == TimelineTrainPhase.Departing -> TimelineSemanticPhase.Departing
-                remainingSeconds <= arrivalPulseWindow.seconds -> TimelineSemanticPhase.Arriving
+                remainingSeconds <= arrivalPulseWindow.preciseSeconds() -> TimelineSemanticPhase.Arriving
                 progress.motionPhase == TimelineTrainPhase.Approaching -> TimelineSemanticPhase.Approaching
                 else -> TimelineSemanticPhase.InTransit
             }
@@ -2203,8 +2241,8 @@ private class TimelineLiveState private constructor(
         end: LocalDateTime,
         current: LocalDateTime,
     ): Float {
-        val totalSeconds = Duration.between(start, end).seconds.coerceAtLeast(1).toFloat()
-        val elapsedSeconds = Duration.between(start, current).seconds.toFloat()
+        val totalSeconds = Duration.between(start, end).preciseSeconds().coerceAtLeast(1.0).toFloat()
+        val elapsedSeconds = Duration.between(start, current).preciseSeconds().toFloat()
         return (elapsedSeconds / totalSeconds).clamp01()
     }
 
@@ -2212,11 +2250,11 @@ private class TimelineLiveState private constructor(
         start: LocalDateTime,
         end: LocalDateTime,
     ): TimelineInfluenceProfile {
-        val durationSeconds = Duration.between(start, end).seconds.coerceAtLeast(1).toFloat()
+        val durationSeconds = Duration.between(start, end).preciseSeconds().coerceAtLeast(1.0).toFloat()
         return TimelineInfluenceProfile.from(
             durationSeconds = durationSeconds,
-            departureWindowSeconds = departureBlendWindow.seconds.toFloat(),
-            approachWindowSeconds = approachWindow.seconds.toFloat(),
+            departureWindowSeconds = departureBlendWindow.preciseSeconds().toFloat(),
+            approachWindowSeconds = approachWindow.preciseSeconds().toFloat(),
         )
     }
 
