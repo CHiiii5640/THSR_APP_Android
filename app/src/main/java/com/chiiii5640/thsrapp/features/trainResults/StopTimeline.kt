@@ -82,6 +82,9 @@ import kotlin.math.roundToInt
 
 private val timelineDepartingCyan = Color(0xFF64D1DF)
 private val timelineApproachingAmber = Color(0xFFF2B46E)
+private val timelineCruiseRailBlue = Color(0xFF4E8FC6)
+private val timelineCruiseRailTailBlue = Color(0xFF758CA7)
+private val timelineCruiseRailGlowBlue = Color(0xFF67A8DF)
 
 private enum class TimelineTrainPhase(val cycleSeconds: Float) {
     Departing(2.15f),
@@ -740,16 +743,16 @@ private fun TimelineRailCanvas(
 
             val phase = segmentState?.phaseOnSegment(segment.index) ?: TimelineTrainPhase.InTransit
             val fillWidthPx = segment.widthPx * progress
-            val accent = phase.accentColor()
-            val tailAccent = phase.tailAccentColor()
+            val accent = phase.railAccentColor()
+            val tailAccent = phase.railTailAccentColor()
 
             drawRoundRect(
                 brush = Brush.horizontalGradient(
-                    colors = listOf(
-                        tailAccent.copy(alpha = 0.20f * segmentOpacity),
-                        tailAccent.copy(alpha = 0.30f * segmentOpacity),
-                        accent.copy(alpha = 0.46f * segmentOpacity),
-                        accent.copy(alpha = 0.82f * segmentOpacity),
+                    colorStops = arrayOf(
+                        0f to tailAccent.copy(alpha = 0.18f * segmentOpacity),
+                        0.34f to tailAccent.copy(alpha = 0.28f * segmentOpacity),
+                        0.74f to accent.copy(alpha = 0.42f * segmentOpacity),
+                        1f to accent.copy(alpha = 0.76f * segmentOpacity),
                     ),
                     startX = segment.startCenterXPx,
                     endX = segment.startCenterXPx + fillWidthPx,
@@ -764,11 +767,11 @@ private fun TimelineRailCanvas(
 
             drawRoundRect(
                 brush = Brush.horizontalGradient(
-                    colors = listOf(
-                        Color.Transparent,
-                        accent.copy(alpha = 0.10f * segmentOpacity),
-                        accent.copy(alpha = 0.24f * segmentOpacity),
-                        accent.copy(alpha = 0.40f * segmentOpacity),
+                    colorStops = arrayOf(
+                        0f to Color.Transparent,
+                        0.42f to accent.copy(alpha = 0.08f * segmentOpacity),
+                        0.80f to phase.railGlowColor().copy(alpha = 0.20f * segmentOpacity),
+                        1f to phase.railGlowColor().copy(alpha = 0.34f * segmentOpacity),
                     ),
                     startX = segment.startCenterXPx,
                     endX = segment.startCenterXPx + fillWidthPx,
@@ -850,14 +853,14 @@ private fun TimelineParticleCanvas(
                 return@forEach
             }
 
-            val visibleWidthPx = max(fillWidthPx - 6f, 1f)
+            val visibleWidthPx = max(fillWidthPx - 5f, 1f)
             val cycleSeconds = phase.cycleSeconds
             val cycleProgress = ((timeSeconds % cycleSeconds) / cycleSeconds).clamp01()
-            val accent = phase.accentColor()
+            val accent = phase.railGlowColor()
             val phaseBoost = when (phase) {
-                TimelineTrainPhase.Departing -> 1.18f
-                TimelineTrainPhase.Approaching -> 1.04f
-                TimelineTrainPhase.InTransit -> 1f
+                TimelineTrainPhase.Departing -> 1.22f
+                TimelineTrainPhase.Approaching -> 1.08f
+                TimelineTrainPhase.InTransit -> 1.08f
                 TimelineTrainPhase.Docked -> 0f
             }
 
@@ -865,19 +868,26 @@ private fun TimelineParticleCanvas(
                 val localProgress = (cycleProgress + (index / 4f)) % 1f
                 val fadeIn = min(localProgress / 0.22f, 1f)
                 val fadeOut = min((1f - localProgress) / 0.30f, 1f)
-                val opacity = (0.16f + (0.42f * min(fadeIn, fadeOut))) * intensity * phaseBoost
-                val widthPx = 5f + ((index % 2) * 1.3f)
-                val heightPx = 2.1f + ((index % 2) * 0.3f)
+                val opacity = (0.18f + (0.46f * min(fadeIn, fadeOut))) * intensity * phaseBoost
+                val widthPx = 5.2f + ((index % 2) * 1.4f)
+                val heightPx = 2.2f + ((index % 2) * 0.35f)
                 val x = max(segment.startCenterXPx, segment.startCenterXPx + (localProgress * visibleWidthPx))
                 val topLeftX = x - (widthPx / 2f)
                 val topLeftY = canvasMetrics.trackYPx - (heightPx / 2f)
 
                 drawRoundRect(
+                    color = accent.copy(alpha = opacity * 0.16f),
+                    topLeft = Offset(topLeftX - 2.2f, topLeftY - 1.0f),
+                    size = Size(widthPx + 4.4f, heightPx + 2.0f),
+                    cornerRadius = CornerRadius(heightPx + 2.0f, heightPx + 2.0f),
+                )
+
+                drawRoundRect(
                     brush = Brush.horizontalGradient(
                         colors = listOf(
                             accent.copy(alpha = opacity * 0.38f),
-                            accent.copy(alpha = opacity * 0.92f),
-                            Color.White.copy(alpha = opacity * 0.72f),
+                            accent.copy(alpha = opacity * 0.98f),
+                            Color.White.copy(alpha = opacity * 0.78f),
                         ),
                     ),
                     topLeft = Offset(topLeftX - 1.2f, topLeftY - 0.5f),
@@ -889,7 +899,7 @@ private fun TimelineParticleCanvas(
                     brush = Brush.horizontalGradient(
                         colors = listOf(
                             accent.copy(alpha = opacity * 0.48f),
-                            accent.copy(alpha = opacity),
+                            accent.copy(alpha = (opacity * 1.18f).coerceAtMost(1f)),
                             Color.White.copy(alpha = opacity * 0.96f),
                         ),
                     ),
@@ -1257,6 +1267,21 @@ private fun TimelineTrainPhase.tailAccentColor(): Color = when (this) {
     TimelineTrainPhase.Departing -> timelineDepartingCyan.copy(alpha = 0.76f)
     TimelineTrainPhase.Approaching -> timelineApproachingAmber.copy(alpha = 0.72f)
     TimelineTrainPhase.Docked -> ThsrDesignTokens.colors.primaryBlue.copy(alpha = 0.70f)
+}
+
+private fun TimelineTrainPhase.railAccentColor(): Color = when (this) {
+    TimelineTrainPhase.InTransit -> timelineCruiseRailBlue
+    else -> accentColor()
+}
+
+private fun TimelineTrainPhase.railTailAccentColor(): Color = when (this) {
+    TimelineTrainPhase.InTransit -> timelineCruiseRailTailBlue
+    else -> tailAccentColor()
+}
+
+private fun TimelineTrainPhase.railGlowColor(): Color = when (this) {
+    TimelineTrainPhase.InTransit -> timelineCruiseRailGlowBlue
+    else -> accentColor()
 }
 
 private fun TimelineStatusTone.color(): Color = when (this) {
