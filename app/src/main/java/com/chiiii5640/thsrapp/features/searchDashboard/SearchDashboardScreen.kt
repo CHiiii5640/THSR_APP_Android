@@ -1,5 +1,6 @@
 package com.chiiii5640.thsrapp.features.searchDashboard
 
+import android.os.SystemClock
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -70,6 +71,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.chiiii5640.thsrapp.BuildConfig
 import com.chiiii5640.thsrapp.core.model.SourceState
 import com.chiiii5640.thsrapp.core.model.SourceStatus
 import com.chiiii5640.thsrapp.core.model.Station
@@ -77,6 +79,7 @@ import com.chiiii5640.thsrapp.core.time.ThsrFormatters
 import com.chiiii5640.thsrapp.features.bookingNotifications.ScheduledNotificationsScreen
 import com.chiiii5640.thsrapp.features.bookingNotifications.ScheduledBookingNotification
 import com.chiiii5640.thsrapp.features.bookingNotifications.BookingNotificationScheduler
+import com.chiiii5640.thsrapp.features.trainResults.DebugTrainPanelSheet
 import com.chiiii5640.thsrapp.features.trainResults.TrainOptionCard
 import com.chiiii5640.thsrapp.ui.layout.rememberThsrLayoutProfile
 import com.chiiii5640.thsrapp.ui.theme.ThsrDesignTokens
@@ -109,6 +112,25 @@ fun SearchDashboardScreen(viewModel: SearchDashboardViewModel) {
     val layoutProfile = rememberThsrLayoutProfile()
     val listState = rememberLazyListState()
     val scheduledNotificationsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val debugPanelSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var showDebugPanel by rememberSaveable { mutableStateOf(false) }
+    var debugUnlockTapCount by rememberSaveable { mutableStateOf(0) }
+    var lastDebugUnlockTapAt by rememberSaveable { mutableStateOf(0L) }
+
+    fun handleDebugUnlockTap() {
+        if (!BuildConfig.DEBUG) return
+        val now = SystemClock.elapsedRealtime()
+        debugUnlockTapCount = if (now - lastDebugUnlockTapAt <= 1_200L) {
+            debugUnlockTapCount + 1
+        } else {
+            1
+        }
+        lastDebugUnlockTapAt = now
+        if (debugUnlockTapCount >= 6) {
+            debugUnlockTapCount = 0
+            showDebugPanel = true
+        }
+    }
 
     Scaffold(
         containerColor = tokens.colors.backgroundColor,
@@ -122,7 +144,14 @@ fun SearchDashboardScreen(viewModel: SearchDashboardViewModel) {
                         text = "高鐵開票看板",
                         style = tokens.typography.largeTitle,
                         color = tokens.colors.textPrimary,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(
+                                enabled = BuildConfig.DEBUG,
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = ::handleDebugUnlockTap,
+                            ),
                         textAlign = TextAlign.Center,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -266,6 +295,28 @@ fun SearchDashboardScreen(viewModel: SearchDashboardViewModel) {
                     layoutProfile = layoutProfile,
                     onDismiss = { viewModel.setShowingScheduledNotifications(false) },
                     onCancel = viewModel::cancelNotification,
+                )
+            }
+        }
+
+        if (showDebugPanel && BuildConfig.DEBUG) {
+            ModalBottomSheet(
+                onDismissRequest = {
+                    debugUnlockTapCount = 0
+                    showDebugPanel = false
+                },
+                sheetState = debugPanelSheetState,
+                shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+                containerColor = tokens.colors.backgroundColor.copy(alpha = 0.98f),
+                scrimColor = tokens.colors.backgroundColor.copy(alpha = 0.55f),
+                dragHandle = null,
+            ) {
+                DebugTrainPanelSheet(
+                    layoutProfile = layoutProfile,
+                    onDismiss = {
+                        debugUnlockTapCount = 0
+                        showDebugPanel = false
+                    },
                 )
             }
         }

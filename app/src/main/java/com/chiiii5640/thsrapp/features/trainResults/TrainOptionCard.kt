@@ -120,6 +120,9 @@ fun TrainOptionCard(
     option: TrainOption,
     scheduledNotification: ScheduledBookingNotification?,
     layoutProfile: ThsrLayoutProfile,
+    timelineReferenceDateTime: LocalDateTime? = null,
+    timelineReferenceAnchorDateTime: LocalDateTime? = null,
+    showSourceLink: Boolean = true,
     onScheduleNotification: (TrainOption, LocalDateTime) -> Unit,
 ) {
     val tokens = ThsrDesignTokens
@@ -273,6 +276,8 @@ fun TrainOptionCard(
                     StopTimeline(
                         option = option,
                         layoutProfile = layoutProfile,
+                        referenceDateTime = timelineReferenceDateTime,
+                        referenceAnchorDateTime = timelineReferenceAnchorDateTime,
                     )
                 }
 
@@ -302,19 +307,21 @@ fun TrainOptionCard(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    FooterAction(
-                        label = option.sourceLinkTitle(),
-                        tint = tokens.colors.primaryBlue.copy(alpha = 0.92f),
-                        onClick = { uriHandler.openUri(option.sourceUrl()) },
-                        leading = {
-                            Icon(
-                                imageVector = Icons.Outlined.Description,
-                                contentDescription = null,
-                                tint = tokens.colors.primaryBlue,
-                                modifier = Modifier.size(tokens.spacing.spacing16),
-                            )
-                        },
-                    )
+                    if (showSourceLink) {
+                        FooterAction(
+                            label = option.sourceLinkTitle(),
+                            tint = tokens.colors.primaryBlue.copy(alpha = 0.92f),
+                            onClick = { uriHandler.openUri(option.sourceUrl()) },
+                            leading = {
+                                Icon(
+                                    imageVector = Icons.Outlined.Description,
+                                    contentDescription = null,
+                                    tint = tokens.colors.primaryBlue,
+                                    modifier = Modifier.size(tokens.spacing.spacing16),
+                                )
+                            },
+                        )
+                    }
                     Spacer(Modifier.weight(1f))
                     FooterAction(
                         label = "前往訂票",
