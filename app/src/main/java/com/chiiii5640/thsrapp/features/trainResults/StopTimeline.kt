@@ -963,8 +963,8 @@ private fun TimelineNode(
             val activeGlowRadius = nodeRadius + (5.2f * activeTransfer)
             if (activeTransfer > 0.01f) {
                 drawCircle(
-                    color = nodePalette.ringColor.copy(alpha = 0.16f * activeTransfer),
-                    radius = activeGlowRadius,
+                    color = nodePalette.ringColor.copy(alpha = 0.24f * activeTransfer),
+                    radius = activeGlowRadius + 0.8f,
                     center = center,
                 )
             }
@@ -973,9 +973,16 @@ private fun TimelineNode(
                 val ringExpandSizePx = with(density) { attentionRing.expandSize.toPx() }
                 val ringOpacity = (attentionRing.opacity + (attentionRing.opacityRange * ringWave))
                     .coerceIn(0f, 1f)
+                val ringRadius = (ringBaseSizePx + (ringExpandSizePx * ringWave)) / 2f
+                drawCircle(
+                    color = attentionRing.color.copy(alpha = (ringOpacity * 0.22f).coerceIn(0f, 0.32f)),
+                    radius = ringRadius + 1.4f,
+                    center = center,
+                    style = Stroke(width = attentionRing.lineWidthPx * 1.9f),
+                )
                 drawCircle(
                     color = attentionRing.color.copy(alpha = ringOpacity),
-                    radius = (ringBaseSizePx + (ringExpandSizePx * ringWave)) / 2f,
+                    radius = ringRadius,
                     center = center,
                     style = Stroke(width = attentionRing.lineWidthPx),
                 )
@@ -1069,13 +1076,17 @@ private fun buildTimelineLayout(
         } else {
             val availableVisibleTrackWidthPx = (viewportWidthPx - leadingInsetPx - trailingInsetPx)
                 .coerceAtLeast(0f)
-            val visibleSegmentWidthPx = max(
-                minSegmentWidthPx,
-                availableVisibleTrackWidthPx / visibleSegmentCount.toFloat(),
-            )
+            val visibleBaseTrackWidthPx = baseSegmentWidthsPx
+                .drop(visibleSegmentStartIndex)
+                .fold(0f) { acc, widthPx -> acc + widthPx }
+            val visibleScale = if (visibleBaseTrackWidthPx > 0f && availableVisibleTrackWidthPx > visibleBaseTrackWidthPx) {
+                availableVisibleTrackWidthPx / visibleBaseTrackWidthPx
+            } else {
+                1f
+            }
             baseSegmentWidthsPx.mapIndexed { index, widthPx ->
                 if (index >= visibleSegmentStartIndex) {
-                    visibleSegmentWidthPx
+                    widthPx * visibleScale
                 } else {
                     widthPx
                 }
@@ -1306,64 +1317,64 @@ private fun TimelineNodeState.attentionRingVisual(
         TimelineNodeState.Standby -> TimelineAttentionRingVisual(
             color = ringColor,
             baseSize = 16.5.dp,
-            expandSize = 5.5.dp,
-            opacity = 0.08f,
-            opacityRange = 0.05f,
-            lineWidthPx = 1.6f,
+            expandSize = 6.0.dp,
+            opacity = 0.13f,
+            opacityRange = 0.07f,
+            lineWidthPx = 1.9f,
         )
 
         TimelineNodeState.DepartingSoon -> TimelineAttentionRingVisual(
             color = ringColor,
             baseSize = 16.5.dp,
-            expandSize = 5.5.dp,
-            opacity = 0.13f,
-            opacityRange = 0.06f,
-            lineWidthPx = 1.7f,
+            expandSize = 6.2.dp,
+            opacity = 0.18f,
+            opacityRange = 0.09f,
+            lineWidthPx = 2.0f,
         )
 
         TimelineNodeState.Approaching -> TimelineAttentionRingVisual(
             color = ringColor,
             baseSize = 16.5.dp,
-            expandSize = 5.5.dp,
-            opacity = 0.09f,
-            opacityRange = 0.05f,
-            lineWidthPx = 1.6f,
+            expandSize = 6.0.dp,
+            opacity = 0.13f,
+            opacityRange = 0.07f,
+            lineWidthPx = 1.9f,
         )
 
         TimelineNodeState.Next -> TimelineAttentionRingVisual(
             color = ringColor,
             baseSize = 16.5.dp,
-            expandSize = 5.5.dp,
-            opacity = 0.06f,
-            opacityRange = 0.03f,
-            lineWidthPx = 1.5f,
+            expandSize = 5.8.dp,
+            opacity = 0.10f,
+            opacityRange = 0.05f,
+            lineWidthPx = 1.8f,
         )
 
         TimelineNodeState.ArrivingSoon -> TimelineAttentionRingVisual(
             color = ringColor,
             baseSize = 16.5.dp,
-            expandSize = 5.5.dp,
-            opacity = 0.13f,
-            opacityRange = 0.06f,
-            lineWidthPx = 1.7f,
+            expandSize = 6.3.dp,
+            opacity = 0.20f,
+            opacityRange = 0.10f,
+            lineWidthPx = 2.05f,
         )
 
         TimelineNodeState.Stopped -> TimelineAttentionRingVisual(
             color = ringColor,
             baseSize = 16.5.dp,
-            expandSize = 5.5.dp,
-            opacity = 0.11f,
-            opacityRange = 0.05f,
-            lineWidthPx = 1.7f,
+            expandSize = 6.1.dp,
+            opacity = 0.17f,
+            opacityRange = 0.08f,
+            lineWidthPx = 2.0f,
         )
 
         TimelineNodeState.Arrived -> TimelineAttentionRingVisual(
             color = ringColor,
             baseSize = 16.5.dp,
-            expandSize = 5.5.dp,
-            opacity = 0.06f,
-            opacityRange = 0.03f,
-            lineWidthPx = 1.5f,
+            expandSize = 5.8.dp,
+            opacity = 0.10f,
+            opacityRange = 0.05f,
+            lineWidthPx = 1.8f,
         )
 
         TimelineNodeState.Station,
@@ -1371,11 +1382,11 @@ private fun TimelineNodeState.attentionRingVisual(
     } ?: return null
 
     return baseVisual.copy(
-        baseSize = (16.5f + (1.1f * clampedTransfer)).dp,
-        expandSize = max(2.8f, 5.5f - (1.2f * clampedTransfer)).dp,
-        opacity = (baseVisual.opacity + (0.04f * clampedTransfer)).coerceIn(0f, 1f),
-        opacityRange = (baseVisual.opacityRange * (1f - (0.45f * clampedTransfer))).coerceAtLeast(0f),
-        lineWidthPx = baseVisual.lineWidthPx + (0.2f * clampedTransfer),
+        baseSize = (16.5f + (1.3f * clampedTransfer)).dp,
+        expandSize = max(3.2f, baseVisual.expandSize.value - (1.0f * clampedTransfer)).dp,
+        opacity = (baseVisual.opacity + (0.06f * clampedTransfer)).coerceIn(0f, 1f),
+        opacityRange = (baseVisual.opacityRange * (1f - (0.32f * clampedTransfer))).coerceAtLeast(0f),
+        lineWidthPx = baseVisual.lineWidthPx + (0.32f * clampedTransfer),
     )
 }
 
