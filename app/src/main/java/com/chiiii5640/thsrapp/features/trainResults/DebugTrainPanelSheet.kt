@@ -114,6 +114,10 @@ fun DebugTrainPanelSheet(
             null
         }
     }
+    val previewTimelineFrame = rememberTrainTimelineFrame(
+        referenceDateTime = previewReferenceDateTime,
+        referenceAnchorDateTime = previewReferenceAnchorDateTime,
+    )
     val previewOption = remember(trainNumber, direction, origin, destination, travelDate, activeStops, stopTimes) {
         buildDebugTrainOption(
             trainNumber = trainNumber,
@@ -489,8 +493,7 @@ fun DebugTrainPanelSheet(
                         option = previewOption,
                         scheduledNotification = null,
                         layoutProfile = layoutProfile,
-                        timelineReferenceDateTime = previewReferenceDateTime,
-                        timelineReferenceAnchorDateTime = previewReferenceAnchorDateTime,
+                        timelineFrame = previewTimelineFrame,
                         showSourceLink = false,
                         onScheduleNotification = { _, _ -> },
                     )

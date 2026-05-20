@@ -80,6 +80,7 @@ import com.chiiii5640.thsrapp.features.bookingNotifications.ScheduledNotificatio
 import com.chiiii5640.thsrapp.features.bookingNotifications.ScheduledBookingNotification
 import com.chiiii5640.thsrapp.features.bookingNotifications.BookingNotificationScheduler
 import com.chiiii5640.thsrapp.features.trainResults.DebugTrainPanelSheet
+import com.chiiii5640.thsrapp.features.trainResults.rememberTrainTimelineFrame
 import com.chiiii5640.thsrapp.features.trainResults.TrainOptionCard
 import com.chiiii5640.thsrapp.ui.layout.rememberThsrLayoutProfile
 import com.chiiii5640.thsrapp.ui.theme.ThsrDesignTokens
@@ -110,6 +111,7 @@ fun SearchDashboardScreen(viewModel: SearchDashboardViewModel) {
     val scheduledById = state.scheduledNotifications.associateBy(ScheduledBookingNotification::id)
     val tokens = ThsrDesignTokens
     val layoutProfile = rememberThsrLayoutProfile()
+    val sharedTimelineFrame = rememberTrainTimelineFrame()
     val listState = rememberLazyListState()
     val scheduledNotificationsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val debugPanelSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -272,6 +274,7 @@ fun SearchDashboardScreen(viewModel: SearchDashboardViewModel) {
                                 option = option,
                                 scheduledNotification = scheduledById[BookingNotificationScheduler.notificationId(option)],
                                 layoutProfile = layoutProfile,
+                                timelineFrame = sharedTimelineFrame,
                                 onScheduleNotification = viewModel::scheduleNotification,
                             )
                         }

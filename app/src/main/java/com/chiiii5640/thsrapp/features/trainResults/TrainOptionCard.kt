@@ -120,8 +120,7 @@ fun TrainOptionCard(
     option: TrainOption,
     scheduledNotification: ScheduledBookingNotification?,
     layoutProfile: ThsrLayoutProfile,
-    timelineReferenceDateTime: LocalDateTime? = null,
-    timelineReferenceAnchorDateTime: LocalDateTime? = null,
+    timelineFrame: TrainTimelineFrame? = null,
     showSourceLink: Boolean = true,
     onScheduleNotification: (TrainOption, LocalDateTime) -> Unit,
 ) {
@@ -276,8 +275,7 @@ fun TrainOptionCard(
                     StopTimeline(
                         option = option,
                         layoutProfile = layoutProfile,
-                        referenceDateTime = timelineReferenceDateTime,
-                        referenceAnchorDateTime = timelineReferenceAnchorDateTime,
+                        timelineFrame = timelineFrame,
                     )
                 }
 

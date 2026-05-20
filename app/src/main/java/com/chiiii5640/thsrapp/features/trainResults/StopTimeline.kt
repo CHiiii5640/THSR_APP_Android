@@ -81,11 +81,6 @@ import kotlin.math.roundToInt
 private val timelineDepartingCyan = Color(0xFF64D1DF)
 private val timelineApproachingAmber = Color(0xFFF2B46E)
 
-private data class TimelineFrame(
-    val now: LocalDateTime,
-    val frameNanos: Long,
-)
-
 private enum class TimelineTrainPhase(val cycleSeconds: Float) {
     Departing(2.15f),
     InTransit(2.55f),
@@ -375,8 +370,7 @@ private data class TimelineInfluenceProfile(
 fun StopTimeline(
     option: TrainOption,
     layoutProfile: ThsrLayoutProfile,
-    referenceDateTime: LocalDateTime? = null,
-    referenceAnchorDateTime: LocalDateTime? = null,
+    timelineFrame: TrainTimelineFrame? = null,
 ) {
     val stops = remember(option) { option.timelineStops }
     if (stops.size < 2) {
@@ -408,10 +402,7 @@ fun StopTimeline(
             .takeIf { it >= 0 }
             ?: stops.lastIndex
     }
-    val frame = rememberTimelineFrame(
-        referenceDateTime = referenceDateTime,
-        referenceAnchorDateTime = referenceAnchorDateTime,
-    )
+    val frame = timelineFrame ?: rememberTrainTimelineFrame()
     val odLiveState = remember(stops, option.travelDate, frame.now, canvasMetrics, originStopIndex, destinationStopIndex) {
         TimelineLiveState.create(
             stops = stops,
@@ -1008,57 +999,6 @@ private fun TimelineNode(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-    }
-}
-
-@Composable
-private fun rememberTimelineFrame(
-    referenceDateTime: LocalDateTime? = null,
-    referenceAnchorDateTime: LocalDateTime? = null,
-): TimelineFrame {
-    var frame by remember(referenceDateTime, referenceAnchorDateTime) {
-        mutableStateOf(
-            TimelineFrame(
-                now = resolveTimelineNow(
-                    realNow = LocalDateTime.now(),
-                    referenceDateTime = referenceDateTime,
-                    referenceAnchorDateTime = referenceAnchorDateTime,
-                ),
-                frameNanos = 0L,
-            ),
-        )
-    }
-    LaunchedEffect(referenceDateTime, referenceAnchorDateTime) {
-        while (isActive) {
-            withFrameNanos { frameNanos ->
-                val realNow = LocalDateTime.now()
-                frame = TimelineFrame(
-                    now = resolveTimelineNow(
-                        realNow = realNow,
-                        referenceDateTime = referenceDateTime,
-                        referenceAnchorDateTime = referenceAnchorDateTime,
-                    ),
-                    frameNanos = frameNanos,
-                )
-            }
-        }
-    }
-    return frame
-}
-
-private fun resolveTimelineNow(
-    realNow: LocalDateTime,
-    referenceDateTime: LocalDateTime?,
-    referenceAnchorDateTime: LocalDateTime?,
-): LocalDateTime {
-    if (referenceDateTime == null) {
-        return realNow
-    }
-    val anchor = referenceAnchorDateTime ?: return referenceDateTime
-    return try {
-        referenceDateTime.plusNanos(Duration.between(anchor, realNow).toNanos())
-    } catch (_: ArithmeticException) {
-        referenceDateTime
     }
 }
 
