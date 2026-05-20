@@ -423,7 +423,17 @@ fun StopTimeline(
             destinationStopIndex = stops.lastIndex,
         )
     }
-    val statusPill = remember(odLiveState) { odLiveState?.statusPill() }
+    val anchorStopIndex = originStopIndex.coerceIn(0, stops.lastIndex)
+    val hasRouteActivityBeforeOrigin = remember(routeLiveState, anchorStopIndex) {
+        routeLiveState?.hasLiveActivityBefore(anchorStopIndex) ?: false
+    }
+    val statusPill = remember(odLiveState, routeLiveState, hasRouteActivityBeforeOrigin) {
+        if (hasRouteActivityBeforeOrigin) {
+            routeLiveState?.statusPill()
+        } else {
+            odLiveState?.statusPill()
+        }
+    }
     val scrollState = rememberScrollState()
     var previousStopsRevealed by remember(option.trainNo, option.travelDate, option.origin, option.destination) {
         mutableStateOf(false)
@@ -459,10 +469,8 @@ fun StopTimeline(
                     viewportWidthPx = viewportWidthPx,
                 )
             }
-            val anchorStopIndex = originStopIndex.coerceIn(0, stops.lastIndex)
             val hiddenBeforeIndex = anchorStopIndex
-            val routeActivityBeforeOrigin = previousStopsRevealed &&
-                (routeLiveState?.hasLiveActivityBefore(anchorStopIndex) ?: false)
+            val routeActivityBeforeOrigin = previousStopsRevealed && hasRouteActivityBeforeOrigin
             val focusedSegmentIndex = (
                 if (routeActivityBeforeOrigin) {
                     routeLiveState?.focusedSegmentIndex(0)
