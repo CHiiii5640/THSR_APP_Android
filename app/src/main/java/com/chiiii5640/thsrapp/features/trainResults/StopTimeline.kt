@@ -52,6 +52,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Density
@@ -227,6 +228,7 @@ private data class TimelineAttentionRingVisual(
 
 private data class TimelineMarkerVisual(
     val centerXPx: Float,
+    val trackStartXPx: Float,
     val phase: TimelineTrainPhase,
     val motion: TimelineMotionMetrics,
     val opacity: Float,
@@ -1016,23 +1018,59 @@ private fun TimelineNode(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        Text(
+        val labelTransfer = if (emphasized) {
+            max(activeTransfer, 0.54f)
+        } else {
+            activeTransfer
+        }.clamp01()
+        TimelineNodeLabelText(
             text = stop.displayTime(),
-            color = if (emphasized) nodePalette.timeColor else nodePalette.timeColor.copy(alpha = 0.86f),
-            style = tokens.typography.timelineTime.copy(
-                fontWeight = if (emphasized) FontWeight.SemiBold else FontWeight.Medium,
-            ),
-            maxLines = 1,
+            baseColor = nodePalette.timeColor.copy(alpha = nodePalette.timeColor.alpha * 0.88f),
+            emphasisColor = nodePalette.timeColor,
+            style = tokens.typography.timelineTime,
+            baseWeight = if (stop.role == TimelineStopRole.Intermediate) FontWeight.Medium else FontWeight.SemiBold,
+            emphasisAlpha = 0.88f * labelTransfer,
             overflow = TextOverflow.Clip,
         )
-        Text(
+        TimelineNodeLabelText(
             text = stop.station.localName,
-            color = if (emphasized) nodePalette.stationColor else nodePalette.stationColor.copy(alpha = 0.88f),
-            style = tokens.typography.timelineStation.copy(
-                fontWeight = if (emphasized) FontWeight.SemiBold else FontWeight.Normal,
-            ),
-            maxLines = 1,
+            baseColor = nodePalette.stationColor.copy(alpha = nodePalette.stationColor.alpha * 0.88f),
+            emphasisColor = nodePalette.stationColor,
+            style = tokens.typography.timelineStation,
+            baseWeight = FontWeight.Normal,
+            emphasisAlpha = 0.82f * labelTransfer,
             overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
+private fun TimelineNodeLabelText(
+    text: String,
+    baseColor: Color,
+    emphasisColor: Color,
+    style: TextStyle,
+    baseWeight: FontWeight,
+    emphasisAlpha: Float,
+    overflow: TextOverflow,
+) {
+    Box(
+        modifier = Modifier.fillMaxWidth(),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = text,
+            color = baseColor,
+            style = style.copy(fontWeight = baseWeight),
+            maxLines = 1,
+            overflow = overflow,
+        )
+        Text(
+            text = text,
+            color = emphasisColor.copy(alpha = (emphasisColor.alpha * emphasisAlpha).coerceIn(0f, 1f)),
+            style = style.copy(fontWeight = FontWeight.SemiBold),
+            maxLines = 1,
+            overflow = overflow,
         )
     }
 }
@@ -1398,85 +1436,195 @@ private fun DrawScope.drawTimelineMarker(
     val accent = marker.phase.accentColor()
     val tailAccent = marker.phase.tailAccentColor()
     val wave = timelinePulseWave(frameNanos = frameNanos, cycleSeconds = marker.phase.cycleSeconds)
-    val scale = when (marker.phase) {
-        TimelineTrainPhase.Departing -> 1f + (0.020f * wave)
-        TimelineTrainPhase.InTransit -> 1f + (0.015f * wave)
-        TimelineTrainPhase.Approaching -> 1f + (0.010f * wave)
-        TimelineTrainPhase.Docked -> 1f + (0.008f * wave)
-    }
-    val headWidthPx = marker.motion.headWidthPx * scale
-    val headHeightPx = marker.motion.headHeightPx * (1f + (0.008f * wave))
+    val arrivalTransfer = marker.arrivalTransfer.clamp01()
+    val arrivalScale = 1f - (0.08f * arrivalTransfer)
+    val glowOpacityFactor = 1f - (0.24f * arrivalTransfer)
+    val shellOpacityFactor = 1f - (0.10f * arrivalTransfer)
+    val bodyScale = 0.998f + (0.0055f * wave)
+    val bodyYScale = 1f + (0.006f * wave)
+    val glowScaleX = 1f + ((0.018f - (0.005f * arrivalTransfer)) * wave)
+    val glowScaleY = 1f + (0.014f * wave)
+    val shellWidthPx = marker.motion.headWidthPx * arrivalScale
+    val shellHeightPx = marker.motion.headHeightPx * arrivalScale
+    val bodyWidthPx = shellWidthPx * bodyScale
+    val bodyHeightPx = shellHeightPx * bodyYScale
     val tailWidthPx = marker.motion.tailWidthPx
     val markerRailOverlapPx = max(
         canvasMetrics.activeLineHeightPx * 1.15f,
-        headHeightPx * when (marker.phase) {
+        shellHeightPx * when (marker.phase) {
             TimelineTrainPhase.Departing -> 0.28f
             TimelineTrainPhase.InTransit -> 0.24f
             TimelineTrainPhase.Approaching -> 0.26f
             TimelineTrainPhase.Docked -> 0.30f
         },
     )
-    val centerYPx = canvasMetrics.trackYPx - ((headHeightPx / 2f) - markerRailOverlapPx)
-    val headLeftPx = marker.centerXPx - (headWidthPx / 2f)
-    val headTopPx = centerYPx - (headHeightPx / 2f)
-    val tailHeightPx = headHeightPx * 0.70f
-    val tailTopPx = centerYPx - (tailHeightPx / 2f)
-    val arrivalFade = 1f - (0.24f * marker.arrivalTransfer)
+    val centerYPx = canvasMetrics.trackYPx - ((shellHeightPx / 2f) - markerRailOverlapPx)
+    val shellRightPx = marker.centerXPx + (shellWidthPx / 2f)
+    val shellLeftPx = shellRightPx - bodyWidthPx
+    val shellTopPx = centerYPx - (bodyHeightPx / 2f)
+    val effectiveTailLengthPx = min(
+        tailWidthPx.coerceAtLeast(0f),
+        (marker.centerXPx - marker.trackStartXPx).coerceAtLeast(0f),
+    )
+    val trailWidthPx = effectiveTailLengthPx + (shellWidthPx * 0.12f)
+    val trailHeightPx = max(2.8f, shellHeightPx - 4f)
+    val trailGlowHeightPx = trailHeightPx + 2.8f
+    val trailStartXPx = marker.centerXPx - effectiveTailLengthPx
+    val trailTopPx = centerYPx - (trailHeightPx / 2f)
+    val trailGlowTopPx = centerYPx - (trailGlowHeightPx / 2f)
+    val trailOpacity = when (marker.phase) {
+        TimelineTrainPhase.Departing -> 0.28f + (0.12f * wave)
+        TimelineTrainPhase.InTransit -> 0.12f + (0.04f * wave)
+        TimelineTrainPhase.Approaching -> 0.16f * (1f - (0.35f * arrivalTransfer))
+        TimelineTrainPhase.Docked -> 0f
+    }
+    val trailGlowOpacity = when (marker.phase) {
+        TimelineTrainPhase.Departing -> 0.22f + (0.06f * wave)
+        TimelineTrainPhase.InTransit -> 0.09f + (0.03f * wave)
+        TimelineTrainPhase.Approaching -> 0.14f * (1f - (0.48f * arrivalTransfer))
+        TimelineTrainPhase.Docked -> 0f
+    }
 
-    if (tailWidthPx > 0.5f) {
+    if (trailWidthPx > 1.5f && trailOpacity > 0f) {
         drawRoundRect(
             brush = Brush.horizontalGradient(
                 colors = listOf(
                     tailAccent.copy(alpha = 0f),
-                    tailAccent.copy(alpha = 0.18f * marker.opacity),
-                    accent.copy(alpha = 0.34f * marker.opacity),
+                    tailAccent.copy(alpha = trailGlowOpacity * marker.opacity),
+                    accent.copy(alpha = (trailGlowOpacity + 0.06f) * marker.opacity * glowOpacityFactor),
                 ),
-                startX = headLeftPx - tailWidthPx,
-                endX = headLeftPx + (headHeightPx * 0.4f),
+                startX = trailStartXPx,
+                endX = trailStartXPx + trailWidthPx,
             ),
             topLeft = Offset(
-                x = headLeftPx - tailWidthPx + (headHeightPx * 0.26f),
-                y = tailTopPx,
+                x = trailStartXPx,
+                y = trailGlowTopPx,
             ),
-            size = Size(tailWidthPx, tailHeightPx),
-            cornerRadius = CornerRadius(tailHeightPx, tailHeightPx),
-            alpha = marker.opacity * arrivalFade,
+            size = Size(trailWidthPx, trailGlowHeightPx),
+            cornerRadius = CornerRadius(trailGlowHeightPx, trailGlowHeightPx),
+        )
+
+        drawRoundRect(
+            brush = Brush.horizontalGradient(
+                colors = listOf(
+                    tailAccent.copy(alpha = 0f),
+                    tailAccent.copy(alpha = trailOpacity * 0.72f * marker.opacity),
+                    accent.copy(alpha = trailOpacity * marker.opacity * shellOpacityFactor),
+                ),
+                startX = trailStartXPx,
+                endX = trailStartXPx + trailWidthPx,
+            ),
+            topLeft = Offset(trailStartXPx, trailTopPx),
+            size = Size(trailWidthPx, trailHeightPx),
+            cornerRadius = CornerRadius(trailHeightPx, trailHeightPx),
         )
     }
 
+    val glowWidthPx = (shellWidthPx + 2.2f) * glowScaleX
+    val glowHeightPx = (shellHeightPx + 1.8f) * glowScaleY
+    val glowLeftPx = marker.centerXPx - (glowWidthPx / 2f)
+    val glowTopPx = centerYPx - (glowHeightPx / 2f)
+
     drawRoundRect(
-        color = accent.copy(alpha = 0.16f * marker.opacity * arrivalFade),
-        topLeft = Offset(
-            x = headLeftPx - 1.4f,
-            y = headTopPx - 1.2f,
+        brush = Brush.horizontalGradient(
+            colors = listOf(
+                tailAccent.copy(alpha = 0.02f * marker.opacity * glowOpacityFactor),
+                accent.copy(alpha = (0.04f + (0.02f * wave)) * marker.opacity * glowOpacityFactor),
+                accent.copy(alpha = (0.10f + (0.02f * wave)) * marker.opacity * glowOpacityFactor),
+            ),
+            startX = glowLeftPx,
+            endX = glowLeftPx + glowWidthPx,
         ),
-        size = Size(headWidthPx + 2.8f, headHeightPx + 2.4f),
-        cornerRadius = CornerRadius(headHeightPx, headHeightPx),
+        topLeft = Offset(glowLeftPx, glowTopPx),
+        size = Size(glowWidthPx, glowHeightPx),
+        cornerRadius = CornerRadius(glowHeightPx, glowHeightPx),
+    )
+
+    drawRoundRect(
+        color = accent.copy(alpha = (0.10f + (0.04f * wave)) * marker.opacity * glowOpacityFactor),
+        topLeft = Offset(shellLeftPx - 1.1f, shellTopPx - 0.7f),
+        size = Size(bodyWidthPx + 2.2f, bodyHeightPx + 1.4f),
+        cornerRadius = CornerRadius(bodyHeightPx, bodyHeightPx),
     )
 
     drawRoundRect(
         brush = Brush.horizontalGradient(
             colors = listOf(
-                tailAccent.copy(alpha = 0.90f * marker.opacity),
-                accent.copy(alpha = 0.96f * marker.opacity),
-                Color.White.copy(alpha = 0.94f * marker.opacity),
+                tailAccent.copy(alpha = 0.34f * marker.opacity * shellOpacityFactor),
+                accent.copy(alpha = 0.56f * marker.opacity * shellOpacityFactor),
+                Color.White.copy(alpha = 0.78f * marker.opacity * shellOpacityFactor),
+                Color.White.copy(alpha = 0.94f * marker.opacity * shellOpacityFactor),
             ),
-            startX = headLeftPx,
-            endX = headLeftPx + headWidthPx,
+            startX = shellLeftPx,
+            endX = shellLeftPx + bodyWidthPx,
         ),
-        topLeft = Offset(headLeftPx, headTopPx),
-        size = Size(headWidthPx, headHeightPx),
-        cornerRadius = CornerRadius(headHeightPx, headHeightPx),
+        topLeft = Offset(shellLeftPx, shellTopPx),
+        size = Size(bodyWidthPx, bodyHeightPx),
+        cornerRadius = CornerRadius(bodyHeightPx, bodyHeightPx),
     )
 
     drawRoundRect(
-        color = Color.White.copy(alpha = 0.24f * marker.opacity * arrivalFade),
-        topLeft = Offset(
-            x = headLeftPx + (headWidthPx * 0.58f),
-            y = headTopPx + 1.2f,
+        brush = Brush.horizontalGradient(
+            colors = listOf(
+                tailAccent.copy(alpha = 0.36f * marker.opacity * shellOpacityFactor),
+                accent.copy(alpha = 0.44f * marker.opacity * shellOpacityFactor),
+                Color.White.copy(alpha = 0.72f * marker.opacity * shellOpacityFactor),
+            ),
+            startX = shellLeftPx,
+            endX = shellLeftPx + bodyWidthPx,
         ),
-        size = Size(headWidthPx * 0.18f, headHeightPx - 2.4f),
-        cornerRadius = CornerRadius(headHeightPx, headHeightPx),
+        topLeft = Offset(shellLeftPx, shellTopPx),
+        size = Size(bodyWidthPx, bodyHeightPx),
+        cornerRadius = CornerRadius(bodyHeightPx, bodyHeightPx),
+        style = Stroke(width = 1f),
+    )
+
+    val rearShadeWidthPx = max(6f, bodyWidthPx * 0.30f)
+    val rearShadeHeightPx = max(1f, bodyHeightPx - 2f)
+    drawRoundRect(
+        brush = Brush.horizontalGradient(
+            colors = listOf(
+                Color.Black.copy(alpha = 0.10f * marker.opacity * shellOpacityFactor),
+                Color.Transparent,
+            ),
+            startX = shellLeftPx + 2f,
+            endX = shellLeftPx + 2f + rearShadeWidthPx,
+        ),
+        topLeft = Offset(shellLeftPx + 2f, centerYPx - (rearShadeHeightPx / 2f)),
+        size = Size(rearShadeWidthPx, rearShadeHeightPx),
+        cornerRadius = CornerRadius(rearShadeHeightPx, rearShadeHeightPx),
+    )
+
+    val frontHighlightWidthPx = max(2.8f, bodyWidthPx * 0.10f)
+    val frontHighlightHeightPx = max(4.8f, bodyHeightPx * 0.62f)
+    drawRoundRect(
+        brush = Brush.horizontalGradient(
+            colors = listOf(
+                Color.White.copy(alpha = 0.16f * marker.opacity * shellOpacityFactor),
+                Color.White.copy(alpha = 0.50f * marker.opacity * shellOpacityFactor),
+                Color.White.copy(alpha = 0.78f * marker.opacity * shellOpacityFactor),
+            ),
+            startX = shellLeftPx + bodyWidthPx - frontHighlightWidthPx - 2.2f,
+            endX = shellLeftPx + bodyWidthPx - 2.2f,
+        ),
+        topLeft = Offset(
+            x = shellLeftPx + bodyWidthPx - frontHighlightWidthPx - 2.2f,
+            y = centerYPx - (frontHighlightHeightPx / 2f) - 0.9f,
+        ),
+        size = Size(frontHighlightWidthPx, frontHighlightHeightPx),
+        cornerRadius = CornerRadius(frontHighlightHeightPx, frontHighlightHeightPx),
+    )
+
+    val stripeWidthPx = min(2.4f, bodyWidthPx * 0.18f).coerceAtLeast(1.5f)
+    val stripeHeightPx = max(1f, bodyHeightPx - 3f)
+    drawRoundRect(
+        color = accent.copy(alpha = 0.42f * marker.opacity * shellOpacityFactor),
+        topLeft = Offset(
+            x = shellLeftPx + bodyWidthPx - stripeWidthPx - 0.4f,
+            y = centerYPx - (stripeHeightPx / 2f),
+        ),
+        size = Size(stripeWidthPx, stripeHeightPx),
+        cornerRadius = CornerRadius(stripeHeightPx, stripeHeightPx),
     )
 }
 
@@ -1840,6 +1988,7 @@ private class TimelineLiveState private constructor(
         if (resolvedPhase.phase in setOf(TimelineSemanticPhase.NotDeparted, TimelineSemanticPhase.AboutToDepart)) {
             return TimelineMarkerVisual(
                 centerXPx = layout.nodeCenterPx(originStopIndex),
+                trackStartXPx = layout.nodeCenterPx(originStopIndex),
                 phase = TimelineTrainPhase.Docked,
                 motion = TimelineMotionMetrics(
                     headWidthPx = markerHeightPx * 1.28f,
@@ -1857,6 +2006,7 @@ private class TimelineLiveState private constructor(
             val segment = layout.segment(transitIndex) ?: return null
             return TimelineMarkerVisual(
                 centerXPx = segment.position(progress.easedProgress),
+                trackStartXPx = segment.startCenterXPx,
                 phase = phase,
                 motion = motionMetrics(
                     phase = phase,
@@ -1885,10 +2035,11 @@ private class TimelineLiveState private constructor(
                 val opacity = settledOpacity + ((0.92f - settledOpacity) * departureProgress)
                 return TimelineMarkerVisual(
                     centerXPx = layout.nodeCenterPx(stoppedIndex),
+                    trackStartXPx = layout.nodeCenterPx((stoppedIndex - 1).coerceAtLeast(originStopIndex)),
                     phase = TimelineTrainPhase.Docked,
                     motion = TimelineMotionMetrics(
-                        headWidthPx = markerHeightPx * 1.42f,
-                        headHeightPx = markerHeightPx * 1.10f,
+                        headWidthPx = markerHeightPx * 1.50f,
+                        headHeightPx = markerHeightPx * 1.50f,
                         tailWidthPx = 0f,
                     ),
                     opacity = opacity,
@@ -2081,31 +2232,36 @@ private class TimelineLiveState private constructor(
     ): TimelineMotionMetrics = when (phase) {
         TimelineTrainPhase.Departing -> {
             val launch = profile.departurePhaseProgress(rawProgress)
+            val headDiameterPx = markerHeightPx * 1.13f
             TimelineMotionMetrics(
-                headWidthPx = markerHeightPx * (1.72f + (0.24f * launch)),
-                headHeightPx = markerHeightPx * (1.02f + (0.04f * launch)),
-                tailWidthPx = markerHeightPx * (0.92f + (0.64f * launch)),
+                headWidthPx = headDiameterPx * (1.16f + (0.54f * launch)),
+                headHeightPx = headDiameterPx,
+                tailWidthPx = markerHeightPx * (1.34f + (0.78f * launch)),
             )
         }
 
-        TimelineTrainPhase.InTransit -> TimelineMotionMetrics(
-            headWidthPx = markerHeightPx * 1.82f,
-            headHeightPx = markerHeightPx,
-            tailWidthPx = markerHeightPx * 0.84f,
-        )
+        TimelineTrainPhase.InTransit -> {
+            val headDiameterPx = markerHeightPx * 1.09f
+            TimelineMotionMetrics(
+                headWidthPx = headDiameterPx * 1.58f,
+                headHeightPx = headDiameterPx,
+                tailWidthPx = markerHeightPx * 0.89f,
+            )
+        }
 
         TimelineTrainPhase.Approaching -> {
             val transfer = profile.arrivalNodeTransfer(rawProgress, magnetic = true)
+            val headDiameterPx = markerHeightPx * (1.11f - (0.03f * transfer))
             TimelineMotionMetrics(
-                headWidthPx = markerHeightPx * (1.68f - (0.18f * transfer)),
-                headHeightPx = markerHeightPx * (1.00f - (0.03f * transfer)),
-                tailWidthPx = markerHeightPx * (0.82f - (0.44f * transfer)),
+                headWidthPx = headDiameterPx * (1.44f - (0.24f * transfer)),
+                headHeightPx = headDiameterPx,
+                tailWidthPx = markerHeightPx * (0.94f - (0.50f * transfer)),
             )
         }
 
         TimelineTrainPhase.Docked -> TimelineMotionMetrics(
-            headWidthPx = markerHeightPx * 1.40f,
-            headHeightPx = markerHeightPx * 1.08f,
+            headWidthPx = markerHeightPx * 1.50f,
+            headHeightPx = markerHeightPx * 1.50f,
             tailWidthPx = 0f,
         )
     }
