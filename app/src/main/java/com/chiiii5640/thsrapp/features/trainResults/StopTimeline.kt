@@ -216,6 +216,15 @@ private data class TimelineMotionMetrics(
     val tailWidthPx: Float,
 )
 
+private data class TimelineAttentionRingVisual(
+    val color: Color,
+    val baseSize: Dp,
+    val expandSize: Dp,
+    val opacity: Float,
+    val opacityRange: Float,
+    val lineWidthPx: Float,
+)
+
 private data class TimelineMarkerVisual(
     val centerXPx: Float,
     val phase: TimelineTrainPhase,
@@ -460,9 +469,10 @@ fun StopTimeline(
             val timelineHorizontalPaddingPx = with(density) { 8.dp.toPx() }
             val viewportWidthPx = (with(density) { maxWidth.toPx() } - (timelineHorizontalPaddingPx * 2f))
                 .coerceAtLeast(0f)
-            val layoutMetrics = remember(stops, density, layoutProfile, visualMetrics, viewportWidthPx) {
+            val layoutMetrics = remember(stops, anchorStopIndex, density, layoutProfile, visualMetrics, viewportWidthPx) {
                 buildTimelineLayout(
                     stops = stops,
+                    anchorStopIndex = anchorStopIndex,
                     layoutProfile = layoutProfile,
                     visualMetrics = visualMetrics,
                     density = density,
@@ -918,6 +928,12 @@ private fun TimelineNode(
     val nodePalette = remember(state, stop.role, activeTransfer) {
         state.nodePalette(role = stop.role, activeTransfer = activeTransfer)
     }
+    val attentionRing = remember(state, nodePalette.ringColor, activeTransfer) {
+        state.attentionRingVisual(
+            ringColor = nodePalette.ringColor,
+            activeTransfer = activeTransfer,
+        )
+    }
     val nodeLeftPx = centerXPx - (containerPx / 2f)
     val nodeTopPx = canvasMetrics.trackYPx - (containerPx / 2f)
     val labelLeftPx = (centerXPx - (labelWidthPx / 2f)).coerceIn(0f, max(0f, totalWidthPx - labelWidthPx))
@@ -952,12 +968,16 @@ private fun TimelineNode(
                     center = center,
                 )
             }
-            if (nodePalette.ringAlpha > 0f) {
+            if (attentionRing != null) {
+                val ringBaseSizePx = with(density) { attentionRing.baseSize.toPx() }
+                val ringExpandSizePx = with(density) { attentionRing.expandSize.toPx() }
+                val ringOpacity = (attentionRing.opacity + (attentionRing.opacityRange * ringWave))
+                    .coerceIn(0f, 1f)
                 drawCircle(
-                    color = nodePalette.ringColor.copy(alpha = nodePalette.ringAlpha * (0.72f + (0.28f * ringWave))),
-                    radius = nodeRadius + 2.8f + (2.0f * ringWave) + (activeTransfer * 1.6f),
+                    color = attentionRing.color.copy(alpha = ringOpacity),
+                    radius = (ringBaseSizePx + (ringExpandSizePx * ringWave)) / 2f,
                     center = center,
-                    style = Stroke(width = nodePalette.strokeWidthPx * 0.92f),
+                    style = Stroke(width = attentionRing.lineWidthPx),
                 )
             }
             drawCircle(
@@ -1012,6 +1032,7 @@ private fun TimelineNode(
 
 private fun buildTimelineLayout(
     stops: List<TimelineStop>,
+    anchorStopIndex: Int,
     layoutProfile: ThsrLayoutProfile,
     visualMetrics: TimelineVisualMetrics,
     density: Density,
@@ -1033,10 +1054,33 @@ private fun buildTimelineLayout(
         unitWidthPx * if (layoutProfile.isLargeFont) 2.4f else 2.2f,
         minReadableSpacingPx,
     )
-    val segmentWidthsPx = List(segmentCount) { index ->
+    val baseSegmentWidthsPx = List(segmentCount) { index ->
         val stationGap = abs(stops[index + 1].station.sortIndex - stops[index].station.sortIndex)
             .coerceAtLeast(1)
         max(minSegmentWidthPx, stationGap * unitWidthPx)
+    }
+    val segmentWidthsPx = if (segmentCount <= 0) {
+        emptyList()
+    } else {
+        val visibleSegmentStartIndex = anchorStopIndex.coerceIn(0, segmentCount)
+        val visibleSegmentCount = (segmentCount - visibleSegmentStartIndex).coerceAtLeast(0)
+        if (visibleSegmentCount == 0) {
+            baseSegmentWidthsPx
+        } else {
+            val availableVisibleTrackWidthPx = (viewportWidthPx - leadingInsetPx - trailingInsetPx)
+                .coerceAtLeast(0f)
+            val visibleSegmentWidthPx = max(
+                minSegmentWidthPx,
+                availableVisibleTrackWidthPx / visibleSegmentCount.toFloat(),
+            )
+            baseSegmentWidthsPx.mapIndexed { index, widthPx ->
+                if (index >= visibleSegmentStartIndex) {
+                    visibleSegmentWidthPx
+                } else {
+                    widthPx
+                }
+            }
+        }
     }
     var currentCenterXPx = leadingInsetPx
     val nodeCenters = mutableListOf(currentCenterXPx)
@@ -1143,7 +1187,6 @@ private data class TimelineNodePalette(
     val fillColor: Color,
     val strokeColor: Color,
     val ringColor: Color,
-    val ringAlpha: Float,
     val strokeWidthPx: Float,
     val timeColor: Color,
     val stationColor: Color,
@@ -1167,7 +1210,6 @@ private fun TimelineNodeState.nodePalette(
             fillColor = Color.Transparent,
             strokeColor = tokens.colors.primaryBlue.copy(alpha = 0.34f),
             ringColor = tokens.colors.primaryBlue,
-            ringAlpha = 0f,
             strokeWidthPx = 1.1f,
             timeColor = timeSecondary.copy(alpha = 0.74f),
             stationColor = stationSecondary.copy(alpha = 0.74f),
@@ -1178,7 +1220,6 @@ private fun TimelineNodeState.nodePalette(
             fillColor = tokens.colors.primaryBlue.copy(alpha = 0.12f),
             strokeColor = tokens.colors.primaryBlue.copy(alpha = 0.22f),
             ringColor = tokens.colors.primaryBlue,
-            ringAlpha = 0f,
             strokeWidthPx = 1f,
             timeColor = timeSecondary.copy(alpha = 0.60f),
             stationColor = stationSecondary.copy(alpha = 0.58f),
@@ -1189,7 +1230,6 @@ private fun TimelineNodeState.nodePalette(
             fillColor = tokens.colors.primaryBlue.copy(alpha = 0.16f + (0.10f * activeTransfer)),
             strokeColor = tokens.colors.primaryBlue.copy(alpha = 0.82f + (0.10f * activeTransfer)),
             ringColor = tokens.colors.primaryBlue,
-            ringAlpha = 0.08f + (0.06f * activeTransfer),
             strokeWidthPx = 1.45f + (0.20f * activeTransfer),
             timeColor = timePrimary.copy(alpha = 0.78f + (0.18f * activeTransfer)),
             stationColor = tokens.colors.textSecondary.copy(alpha = 0.82f + (0.10f * activeTransfer)),
@@ -1200,7 +1240,6 @@ private fun TimelineNodeState.nodePalette(
             fillColor = tokens.colors.primaryBlue.copy(alpha = 0.28f),
             strokeColor = tokens.colors.primaryBlue.copy(alpha = 0.70f),
             ringColor = tokens.colors.primaryBlue,
-            ringAlpha = 0.08f,
             strokeWidthPx = 1.45f,
             timeColor = tokens.colors.textSecondary.copy(alpha = 0.88f),
             stationColor = tokens.colors.textSecondary.copy(alpha = 0.76f),
@@ -1211,7 +1250,6 @@ private fun TimelineNodeState.nodePalette(
             fillColor = timelineDepartingCyan.copy(alpha = 0.18f + (0.06f * activeTransfer)),
             strokeColor = timelineDepartingCyan.copy(alpha = 0.92f),
             ringColor = timelineDepartingCyan,
-            ringAlpha = 0.13f,
             strokeWidthPx = 1.65f,
             timeColor = timePrimary,
             stationColor = tokens.colors.textSecondary.copy(alpha = 0.92f),
@@ -1222,7 +1260,6 @@ private fun TimelineNodeState.nodePalette(
             fillColor = tokens.colors.primaryBlue.copy(alpha = 0.20f + (0.14f * activeTransfer)),
             strokeColor = tokens.colors.primaryBlue.copy(alpha = 0.82f + (0.10f * activeTransfer)),
             ringColor = tokens.colors.primaryBlue,
-            ringAlpha = 0.10f + (0.06f * activeTransfer),
             strokeWidthPx = 1.58f + (0.20f * activeTransfer),
             timeColor = timePrimary.copy(alpha = 0.78f + (0.18f * activeTransfer)),
             stationColor = tokens.colors.textSecondary.copy(alpha = 0.90f + (0.08f * activeTransfer)),
@@ -1233,7 +1270,6 @@ private fun TimelineNodeState.nodePalette(
             fillColor = timelineApproachingAmber.copy(alpha = 0.16f + (0.14f * activeTransfer)),
             strokeColor = timelineApproachingAmber.copy(alpha = 0.92f),
             ringColor = timelineApproachingAmber,
-            ringAlpha = 0.16f + (0.08f * activeTransfer),
             strokeWidthPx = 1.74f + (0.22f * activeTransfer),
             timeColor = timePrimary,
             stationColor = timePrimary,
@@ -1244,7 +1280,6 @@ private fun TimelineNodeState.nodePalette(
             fillColor = tokens.colors.primaryBlue.copy(alpha = 0.92f),
             strokeColor = tokens.colors.primaryBlue.copy(alpha = 0.96f),
             ringColor = tokens.colors.primaryBlue,
-            ringAlpha = 0.11f,
             strokeWidthPx = 1.8f,
             timeColor = timePrimary,
             stationColor = timePrimary,
@@ -1255,12 +1290,93 @@ private fun TimelineNodeState.nodePalette(
             fillColor = tokens.colors.primaryBlue.copy(alpha = 0.88f),
             strokeColor = tokens.colors.primaryBlue.copy(alpha = 0.94f),
             ringColor = tokens.colors.primaryBlue,
-            ringAlpha = 0.08f,
             strokeWidthPx = 1.7f,
             timeColor = timePrimary,
             stationColor = timePrimary,
         )
     }
+}
+
+private fun TimelineNodeState.attentionRingVisual(
+    ringColor: Color,
+    activeTransfer: Float,
+): TimelineAttentionRingVisual? {
+    val clampedTransfer = activeTransfer.clamp01()
+    val baseVisual = when (this) {
+        TimelineNodeState.Standby -> TimelineAttentionRingVisual(
+            color = ringColor,
+            baseSize = 16.5.dp,
+            expandSize = 5.5.dp,
+            opacity = 0.08f,
+            opacityRange = 0.05f,
+            lineWidthPx = 1.6f,
+        )
+
+        TimelineNodeState.DepartingSoon -> TimelineAttentionRingVisual(
+            color = ringColor,
+            baseSize = 16.5.dp,
+            expandSize = 5.5.dp,
+            opacity = 0.13f,
+            opacityRange = 0.06f,
+            lineWidthPx = 1.7f,
+        )
+
+        TimelineNodeState.Approaching -> TimelineAttentionRingVisual(
+            color = ringColor,
+            baseSize = 16.5.dp,
+            expandSize = 5.5.dp,
+            opacity = 0.09f,
+            opacityRange = 0.05f,
+            lineWidthPx = 1.6f,
+        )
+
+        TimelineNodeState.Next -> TimelineAttentionRingVisual(
+            color = ringColor,
+            baseSize = 16.5.dp,
+            expandSize = 5.5.dp,
+            opacity = 0.06f,
+            opacityRange = 0.03f,
+            lineWidthPx = 1.5f,
+        )
+
+        TimelineNodeState.ArrivingSoon -> TimelineAttentionRingVisual(
+            color = ringColor,
+            baseSize = 16.5.dp,
+            expandSize = 5.5.dp,
+            opacity = 0.13f,
+            opacityRange = 0.06f,
+            lineWidthPx = 1.7f,
+        )
+
+        TimelineNodeState.Stopped -> TimelineAttentionRingVisual(
+            color = ringColor,
+            baseSize = 16.5.dp,
+            expandSize = 5.5.dp,
+            opacity = 0.11f,
+            opacityRange = 0.05f,
+            lineWidthPx = 1.7f,
+        )
+
+        TimelineNodeState.Arrived -> TimelineAttentionRingVisual(
+            color = ringColor,
+            baseSize = 16.5.dp,
+            expandSize = 5.5.dp,
+            opacity = 0.06f,
+            opacityRange = 0.03f,
+            lineWidthPx = 1.5f,
+        )
+
+        TimelineNodeState.Station,
+        TimelineNodeState.Passed -> null
+    } ?: return null
+
+    return baseVisual.copy(
+        baseSize = (16.5f + (1.1f * clampedTransfer)).dp,
+        expandSize = max(2.8f, 5.5f - (1.2f * clampedTransfer)).dp,
+        opacity = (baseVisual.opacity + (0.04f * clampedTransfer)).coerceIn(0f, 1f),
+        opacityRange = (baseVisual.opacityRange * (1f - (0.45f * clampedTransfer))).coerceAtLeast(0f),
+        lineWidthPx = baseVisual.lineWidthPx + (0.2f * clampedTransfer),
+    )
 }
 
 private fun DrawScope.drawTimelineMarker(
