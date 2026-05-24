@@ -29,7 +29,17 @@ class SearchDashboardViewModel(
     private val coordinator = SearchCoordinator(
         scope = viewModelScope,
         service = service,
-        onState = { state -> _uiState.update { it.copy(loadState = state) } },
+        onState = { state ->
+            _uiState.update {
+                when (state) {
+                    is SearchLoadState.Loaded -> it.copy(
+                        loadState = state,
+                        actualLatestBookableDate = state.result.actualLatestBookableDate,
+                    )
+                    else -> it.copy(loadState = state)
+                }
+            }
+        },
     )
 
     private val _uiState = MutableStateFlow(
@@ -126,6 +136,7 @@ data class SearchDashboardUiState(
     val showingScheduledNotifications: Boolean = false,
     val scheduledNotifications: List<ScheduledBookingNotification> = emptyList(),
     val isDepartureTimeUserSelected: Boolean = false,
+    val actualLatestBookableDate: LocalDate? = null,
 )
 
 internal fun defaultDepartureAfter(travelDate: LocalDate, clock: Clock): LocalTime =

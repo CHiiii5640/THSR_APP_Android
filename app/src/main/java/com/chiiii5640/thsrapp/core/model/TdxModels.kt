@@ -100,3 +100,18 @@ data class TdxSeatBoardStopStation(
     @SerialName("StandardSeatStatus") val standardSeatStatus: String? = null,
     @SerialName("BusinessSeatStatus") val businessSeatStatus: String? = null,
 )
+
+@Serializable
+data class TdxTrainDateSupply(
+    @SerialName("StartDate") val startDate: String,
+    @SerialName("EndDate") val endDate: String,
+    @SerialName("TrainDates") val trainDates: List<String> = emptyList(),
+    @SerialName("UpdateTime") val updateTime: String? = null,
+) {
+    fun latestBookableDate(): java.time.LocalDate? {
+        val value = trainDates.lastOrNull()?.takeIf { it.isNotBlank() }
+            ?: endDate.takeIf { it.isNotBlank() }
+            ?: return null
+        return java.time.LocalDate.parse(value)
+    }
+}

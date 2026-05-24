@@ -6,12 +6,14 @@ import com.chiiii5640.thsrapp.core.network.TdxApiClient
 import com.chiiii5640.thsrapp.core.network.TdxAuthInterceptor
 import com.chiiii5640.thsrapp.core.network.UrlConnectionHttpClient
 import com.chiiii5640.thsrapp.core.persistence.PersistedGeneralTimetableStore
+import com.chiiii5640.thsrapp.core.persistence.PersistedTrainDateSupplyStore
 import com.chiiii5640.thsrapp.core.persistence.RoutePreferencesStore
 import com.chiiii5640.thsrapp.core.time.ThsrClock
 import com.chiiii5640.thsrapp.features.bookingNotifications.BookingNotificationScheduler
 import com.chiiii5640.thsrapp.features.discounts.FeedDiscountService
 import com.chiiii5640.thsrapp.features.searchDashboard.SearchDashboardService
 import com.chiiii5640.thsrapp.features.searchDashboard.SearchDashboardViewModel
+import com.chiiii5640.thsrapp.features.searchDashboard.TdxBookingWindowStatusProvider
 import com.chiiii5640.thsrapp.features.seatAvailability.TdxSeatAvailabilityProvider
 import com.chiiii5640.thsrapp.features.timetable.TdxTimetableProvider
 
@@ -28,8 +30,14 @@ class AppGraph(context: Context) {
     private val tdxApi = TdxApiClient(httpClient, auth)
     private val routePreferencesStore = RoutePreferencesStore(appContext)
     private val persistedGeneralTimetableStore = PersistedGeneralTimetableStore(appContext)
+    private val persistedTrainDateSupplyStore = PersistedTrainDateSupplyStore(appContext)
     private val bookingNotificationScheduler = BookingNotificationScheduler(appContext)
     private val feedDiscountService = FeedDiscountService(httpClient, BuildConfig.DISCOUNT_FEED_URL)
+    private val bookingWindowStatusProvider = TdxBookingWindowStatusProvider(
+        api = tdxApi,
+        persistedStore = persistedTrainDateSupplyStore,
+        clock = clock,
+    )
 
     private val searchDashboardService = SearchDashboardService(
         timetableProvider = TdxTimetableProvider(tdxApi, persistedGeneralTimetableStore),
@@ -37,6 +45,7 @@ class AppGraph(context: Context) {
         discountProvider = feedDiscountService,
         fallbackTimetableProvider = feedDiscountService,
         clock = clock,
+        bookingWindowStatusProvider = bookingWindowStatusProvider,
     )
 
     fun searchDashboardViewModel(): SearchDashboardViewModel =

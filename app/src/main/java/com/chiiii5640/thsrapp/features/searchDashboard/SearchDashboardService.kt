@@ -27,6 +27,7 @@ class SearchDashboardService(
     private val discountProvider: DiscountProvider,
     private val fallbackTimetableProvider: FallbackTimetableProvider? = null,
     private val clock: Clock,
+    private val bookingWindowStatusProvider: BookingWindowStatusProvider? = null,
 ) {
     private val bookingWindowCalculator = BookingWindowCalculator(clock)
     private val aboutToDepartWindow = Duration.ofMinutes(2)
@@ -35,6 +36,7 @@ class SearchDashboardService(
     private val departureBlendWindow = Duration.ofSeconds(12)
 
     suspend fun search(query: TripQuery): SearchResult {
+        val actualLatestBookableDate = bookingWindowStatusProvider?.actualLatestBookableDate(query.forceRefresh)
         val primaryTimetable = timetableProvider.trains(query)
         val fallbackTimetable = if (primaryTimetable.trains.isEmpty() && primaryTimetable.allowsFeedFallback) {
             ThsrLog.i("primary timetable empty, trying feed fallback for ${query.origin.localName}-${query.destination.localName} ${query.travelDate} ${query.departureAfter}")
@@ -73,6 +75,7 @@ class SearchDashboardService(
                     SourceStatus("seat skipped without timetable results", SourceState.Unavailable),
                     SourceStatus("discount skipped without timetable results", SourceState.Unavailable),
                 ),
+                actualLatestBookableDate = actualLatestBookableDate,
             )
         }
 
@@ -87,6 +90,7 @@ class SearchDashboardService(
             val bookingStatus = bookingWindowCalculator.bookingStatus(
                 travelDate = query.travelDate,
                 departureTime = train.departureTime,
+                actualLatestBookableDate = actualLatestBookableDate,
             )
             TrainOption(
                 trainNo = train.trainNo,
@@ -114,6 +118,7 @@ class SearchDashboardService(
         return SearchResult(
             options = options,
             sourceStatuses = listOf(timetable.status, seats.status, discounts.status),
+            actualLatestBookableDate = actualLatestBookableDate,
         )
     }
 
@@ -350,4 +355,5 @@ data class SearchResult(
         SourceStatus("seat unavailable", SourceState.Unavailable),
         SourceStatus("discount unavailable", SourceState.Unavailable),
     ),
+    val actualLatestBookableDate: LocalDate? = null,
 )

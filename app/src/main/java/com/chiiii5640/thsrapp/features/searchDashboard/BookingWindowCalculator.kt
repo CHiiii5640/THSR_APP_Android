@@ -11,6 +11,7 @@ class BookingWindowCalculator(
     fun bookingStatus(
         travelDate: LocalDate,
         departureTime: LocalTime,
+        actualLatestBookableDate: LocalDate? = null,
     ): BookingStatus {
         val today = LocalDate.now(clock)
         val now = LocalTime.now(clock)
@@ -23,7 +24,10 @@ class BookingWindowCalculator(
             return BookingStatus.Closed
         }
 
-        val latestBookableDate = latestBookableDate(today)
+        val latestBookableDate = resolvedLatestBookableDate(
+            today = today,
+            actualLatestBookableDate = actualLatestBookableDate,
+        )
         if (!travelDate.isAfter(latestBookableDate)) {
             return BookingStatus.Available
         }
@@ -33,6 +37,7 @@ class BookingWindowCalculator(
                 travelDate = travelDate,
                 today = today,
             ),
+            officialAvailableThrough = actualLatestBookableDate,
         )
     }
 
@@ -54,6 +59,18 @@ class BookingWindowCalculator(
         return when (today.dayOfWeek.value) {
             5, 6 -> maxOf(normalLimit, firstSundayAtLeastFourWeeksAway(today))
             else -> normalLimit
+        }
+    }
+
+    private fun resolvedLatestBookableDate(
+        today: LocalDate,
+        actualLatestBookableDate: LocalDate?,
+    ): LocalDate {
+        val estimatedLimit = latestBookableDate(today)
+        return if (actualLatestBookableDate == null) {
+            estimatedLimit
+        } else {
+            maxOf(estimatedLimit, actualLatestBookableDate)
         }
     }
 

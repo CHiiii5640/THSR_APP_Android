@@ -8,6 +8,7 @@ import com.chiiii5640.thsrapp.core.model.TdxSeatBoardStationResponse
 import com.chiiii5640.thsrapp.core.model.TdxSeatBoardObjectResponse
 import com.chiiii5640.thsrapp.core.model.TdxSeatStatusItem
 import com.chiiii5640.thsrapp.core.model.TdxSeatStatusResponse
+import com.chiiii5640.thsrapp.core.model.TdxTrainDateSupply
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.Json
@@ -24,6 +25,9 @@ class TdxApiClient(
 
     suspend fun generalTimetable(forceRefresh: Boolean): List<TdxGeneralTimetableRecord> =
         getJson(TdxUrls.generalTimetable(), forceRefresh)
+
+    suspend fun trainDateSupply(forceRefresh: Boolean): TdxTrainDateSupply =
+        getJson(TdxUrls.trainDates(), forceRefresh)
 
     suspend fun odSeatStatus(
         date: LocalDate,
@@ -85,6 +89,9 @@ object TdxUrls {
 
     fun generalTimetable(): String =
         "$BASE/GeneralTimetable?\$top=300&\$format=JSON"
+
+    fun trainDates(): String =
+        "$BASE/DailyTimetable/TrainDates?\$format=JSON"
 
     fun odSeatStatus(date: LocalDate, origin: Station, destination: Station): String =
         "$BASE/AvailableSeatStatus/Train/OD/TrainDate/$date?\$top=500&" +

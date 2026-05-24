@@ -97,7 +97,10 @@ enum class TimelineStopRole {
 sealed class BookingStatus {
     object Available : BookingStatus()
 
-    data class NotYetOpen(val openingDate: LocalDate) : BookingStatus()
+    data class NotYetOpen(
+        val openingDate: LocalDate,
+        val officialAvailableThrough: LocalDate? = null,
+    ) : BookingStatus()
 
     object Closed : BookingStatus()
 }

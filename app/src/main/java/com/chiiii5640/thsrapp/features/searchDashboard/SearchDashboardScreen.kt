@@ -1,6 +1,7 @@
 package com.chiiii5640.thsrapp.features.searchDashboard
 
 import android.os.SystemClock
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -28,9 +29,11 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.SwapVert
 import androidx.compose.material3.AlertDialog
@@ -451,6 +454,13 @@ private fun QueryFormSection(
                 value = ThsrFormatters.pickerTime(state.departureAfter),
                 onClick = { showTimePicker = true },
             )
+            state.actualLatestBookableDate?.let { actualLatestBookableDate ->
+                QueryDivider()
+                OfficialBookingWindowCard(
+                    travelDate = state.travelDate,
+                    actualLatestBookableDate = actualLatestBookableDate,
+                )
+            }
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -500,6 +510,67 @@ private fun QueryFormSection(
                 onDepartureAfter(it)
             },
         )
+    }
+}
+
+@Composable
+private fun OfficialBookingWindowCard(
+    travelDate: LocalDate,
+    actualLatestBookableDate: LocalDate,
+) {
+    val tokens = ThsrDesignTokens
+    val selectedDateWithinOfficialWindow = !travelDate.isAfter(actualLatestBookableDate)
+    val tint = if (selectedDateWithinOfficialWindow) {
+        tokens.colors.successGreen
+    } else {
+        tokens.colors.warningOrange
+    }
+    val icon = if (selectedDateWithinOfficialWindow) {
+        Icons.Outlined.CheckCircle
+    } else {
+        Icons.Outlined.Schedule
+    }
+    val detail = if (selectedDateWithinOfficialWindow) {
+        "目前選取日期已在官方開放區間內。"
+    } else {
+        "目前選取日期超過官方開放區間，可先參考下方預估開票時間。"
+    }
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = ThsrDesignTokens.spacing.spacing16)
+            .padding(top = 10.dp, bottom = ThsrDesignTokens.spacing.spacing4),
+        shape = RoundedCornerShape(14.dp),
+        color = tint.copy(alpha = 0.08f),
+        border = BorderStroke(1.dp, tint.copy(alpha = 0.28f)),
+        tonalElevation = 0.dp,
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = tint,
+                )
+                Text(
+                    text = "官方目前已開放到 ${ThsrFormatters.displayDate(actualLatestBookableDate)}",
+                    color = tint,
+                    style = tokens.typography.bodyStrong,
+                )
+            }
+            Text(
+                text = detail,
+                color = tokens.colors.textSecondary,
+                style = tokens.typography.caption,
+            )
+        }
     }
 }
 
