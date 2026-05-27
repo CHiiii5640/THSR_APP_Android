@@ -1703,17 +1703,18 @@ private fun timelinePulseWave(
 private fun Duration.preciseSeconds(): Double = seconds.toDouble() + (nano.toDouble() / 1_000_000_000.0)
 
 private fun TimelineStop.displayTime(): String =
-    when (role) {
-        TimelineStopRole.Destination ->
-            arrivalTime?.let(ThsrFormatters::displayTimetableTime)
-                ?: departureTime?.let(ThsrFormatters::displayTimetableTime)
-                ?: "--:--"
+    primaryTimelineTime()
+        ?.let(ThsrFormatters::displayTimetableTime)
+        ?: "--:--"
 
-        TimelineStopRole.Origin,
-        TimelineStopRole.Intermediate ->
-            departureTime?.let(ThsrFormatters::displayTimetableTime)
-                ?: arrivalTime?.let(ThsrFormatters::displayTimetableTime)
-                ?: "--:--"
+private fun TimelineStop.primaryTimelineTime(): LocalTime? =
+    when (role) {
+        TimelineStopRole.Origin ->
+            departureTime ?: arrivalTime
+
+        TimelineStopRole.Intermediate,
+        TimelineStopRole.Destination ->
+            arrivalTime ?: departureTime
     }
 
 private fun Float.clamp01(): Float = coerceIn(0f, 1f)
@@ -1789,7 +1790,7 @@ private class TimelineLiveState private constructor(
                 if (departure != null && departure.isAfter(anchor)) {
                     anchor = departure
                 }
-                val displayTime = stop.departureTime ?: stop.arrivalTime ?: LocalTime.MIDNIGHT
+                val displayTime = stop.primaryTimelineTime() ?: LocalTime.MIDNIGHT
                 val stationTime = resolveStationDateTime(
                     travelDate = travelDate,
                     time = displayTime,

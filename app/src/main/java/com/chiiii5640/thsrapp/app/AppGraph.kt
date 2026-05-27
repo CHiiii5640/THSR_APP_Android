@@ -56,6 +56,7 @@ class AppGraph(context: Context) {
     fun searchDashboardViewModel(): SearchDashboardViewModel =
         SearchDashboardViewModel(
             service = searchDashboardService,
+            bookingWindowStatusProvider = bookingWindowStatusProvider,
             routePreferencesStore = routePreferencesStore,
             bookingNotificationScheduler = bookingNotificationScheduler,
             clock = clock,

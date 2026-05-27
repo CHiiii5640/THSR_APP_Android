@@ -59,6 +59,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -71,9 +72,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.chiiii5640.thsrapp.BuildConfig
 import com.chiiii5640.thsrapp.core.model.SourceState
 import com.chiiii5640.thsrapp.core.model.SourceStatus
@@ -118,9 +122,26 @@ fun SearchDashboardScreen(viewModel: SearchDashboardViewModel) {
     val listState = rememberLazyListState()
     val scheduledNotificationsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val debugPanelSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val lifecycleOwner = LocalLifecycleOwner.current
     var showDebugPanel by rememberSaveable { mutableStateOf(false) }
     var debugUnlockTapCount by rememberSaveable { mutableStateOf(0) }
     var lastDebugUnlockTapAt by rememberSaveable { mutableStateOf(0L) }
+
+    LaunchedEffect(viewModel) {
+        viewModel.refreshTrainDateSupplyOnAppOpenIfNeeded()
+    }
+
+    DisposableEffect(lifecycleOwner, viewModel) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_START) {
+                viewModel.refreshTrainDateSupplyOnAppOpenIfNeeded()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     fun handleDebugUnlockTap() {
         if (!BuildConfig.DEBUG) return
@@ -459,6 +480,7 @@ private fun QueryFormSection(
                 OfficialBookingWindowCard(
                     travelDate = state.travelDate,
                     actualLatestBookableDate = actualLatestBookableDate,
+                    lastTrainDateSupplyUpdatedAt = state.lastTrainDateSupplyUpdatedAt,
                 )
             }
             Box(
@@ -517,6 +539,7 @@ private fun QueryFormSection(
 private fun OfficialBookingWindowCard(
     travelDate: LocalDate,
     actualLatestBookableDate: LocalDate,
+    lastTrainDateSupplyUpdatedAt: Instant?,
 ) {
     val tokens = ThsrDesignTokens
     val selectedDateWithinOfficialWindow = !travelDate.isAfter(actualLatestBookableDate)
@@ -535,6 +558,11 @@ private fun OfficialBookingWindowCard(
     } else {
         "目前選取日期超過官方開放區間，可先參考下方預估開票時間。"
     }
+    val lastUpdatedText = lastTrainDateSupplyUpdatedAt
+        ?.atZone(ZoneId.systemDefault())
+        ?.let { updatedAt ->
+            "上次更新時間：${ThsrFormatters.displayDate(updatedAt.toLocalDate())} ${ThsrFormatters.displayTimetableTime(updatedAt.toLocalTime())}"
+        }
 
     Surface(
         modifier = Modifier
@@ -570,6 +598,13 @@ private fun OfficialBookingWindowCard(
                 color = tokens.colors.textSecondary,
                 style = tokens.typography.caption,
             )
+            lastUpdatedText?.let { value ->
+                Text(
+                    text = value,
+                    color = tokens.colors.textSecondary,
+                    style = tokens.typography.caption,
+                )
+            }
         }
     }
 }

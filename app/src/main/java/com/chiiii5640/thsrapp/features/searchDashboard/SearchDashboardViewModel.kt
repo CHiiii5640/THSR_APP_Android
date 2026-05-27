@@ -15,12 +15,14 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.Clock
+import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 
 class SearchDashboardViewModel(
     service: SearchDashboardService,
+    private val bookingWindowStatusProvider: BookingWindowStatusProvider?,
     private val routePreferencesStore: RoutePreferencesStore,
     private val bookingNotificationScheduler: BookingNotificationScheduler,
     private val clock: Clock,
@@ -35,6 +37,7 @@ class SearchDashboardViewModel(
                     is SearchLoadState.Loaded -> it.copy(
                         loadState = state,
                         actualLatestBookableDate = state.result.actualLatestBookableDate,
+                        lastTrainDateSupplyUpdatedAt = state.result.lastTrainDateSupplyUpdatedAt,
                     )
                     else -> it.copy(loadState = state)
                 }
@@ -81,6 +84,22 @@ class SearchDashboardViewModel(
     fun setShowingScheduledNotifications(showing: Boolean) = _uiState.update { it.copy(showingScheduledNotifications = showing) }
     fun search() = submit(forceRefresh = false)
     fun forceRefresh() = submit(forceRefresh = true)
+    fun refreshTrainDateSupplyOnAppOpenIfNeeded() {
+        val bookingWindowStatusProvider = bookingWindowStatusProvider ?: return
+        viewModelScope.launch {
+            val actualLatestBookableDate = bookingWindowStatusProvider.refreshTrainDateSupplyOnAppOpenIfNeeded()
+            val lastTrainDateSupplyUpdatedAt = bookingWindowStatusProvider.lastTrainDateSupplyUpdatedAt(
+                forceRefresh = false,
+            )
+            _uiState.update {
+                it.copy(
+                    actualLatestBookableDate = actualLatestBookableDate,
+                    lastTrainDateSupplyUpdatedAt = lastTrainDateSupplyUpdatedAt,
+                )
+            }
+        }
+    }
+
     fun scheduleNotification(option: TrainOption, reminderAt: LocalDateTime) {
         bookingNotificationScheduler.schedule(option, reminderAt)
         refreshScheduledNotifications()
@@ -137,6 +156,7 @@ data class SearchDashboardUiState(
     val scheduledNotifications: List<ScheduledBookingNotification> = emptyList(),
     val isDepartureTimeUserSelected: Boolean = false,
     val actualLatestBookableDate: LocalDate? = null,
+    val lastTrainDateSupplyUpdatedAt: Instant? = null,
 )
 
 internal fun defaultDepartureAfter(travelDate: LocalDate, clock: Clock): LocalTime =

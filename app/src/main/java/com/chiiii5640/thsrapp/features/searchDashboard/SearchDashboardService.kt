@@ -17,6 +17,7 @@ import com.chiiii5640.thsrapp.features.timetable.TimetableTrain
 import com.chiiii5640.thsrapp.features.timetable.TimetableProvider
 import java.time.Clock
 import java.time.Duration
+import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
@@ -40,6 +41,9 @@ class SearchDashboardService(
         val primaryTimetable = timetableProvider.trains(query)
         val actualLatestBookableDate = bookingWindowStatusProvider?.actualLatestBookableDate(forceRefresh = false)
             ?: initialLatestBookableDate
+        val lastTrainDateSupplyUpdatedAt = bookingWindowStatusProvider?.lastTrainDateSupplyUpdatedAt(
+            forceRefresh = false,
+        )
         val fallbackTimetable = if (primaryTimetable.trains.isEmpty() && primaryTimetable.allowsFeedFallback) {
             ThsrLog.i("primary timetable empty, trying feed fallback for ${query.origin.localName}-${query.destination.localName} ${query.travelDate} ${query.departureAfter}")
             fallbackTimetableProvider?.trains(query, query.forceRefresh)
@@ -78,6 +82,7 @@ class SearchDashboardService(
                     SourceStatus("discount skipped without timetable results", SourceState.Unavailable),
                 ),
                 actualLatestBookableDate = actualLatestBookableDate,
+                lastTrainDateSupplyUpdatedAt = lastTrainDateSupplyUpdatedAt,
             )
         }
 
@@ -121,6 +126,7 @@ class SearchDashboardService(
             options = options,
             sourceStatuses = listOf(timetable.status, seats.status, discounts.status),
             actualLatestBookableDate = actualLatestBookableDate,
+            lastTrainDateSupplyUpdatedAt = lastTrainDateSupplyUpdatedAt,
         )
     }
 
@@ -358,4 +364,5 @@ data class SearchResult(
         SourceStatus("discount unavailable", SourceState.Unavailable),
     ),
     val actualLatestBookableDate: LocalDate? = null,
+    val lastTrainDateSupplyUpdatedAt: Instant? = null,
 )
