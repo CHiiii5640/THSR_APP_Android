@@ -26,14 +26,32 @@ class TdxBookingWindowStatusProvider(
         return resolvedSupply(forceRefresh)?.latestBookableDate()
     }
 
+    suspend fun confirmAvailableDate(
+        confirmedDate: LocalDate,
+        updateTime: String?,
+    ) = lock.withLock {
+        val currentSupply = currentSupply() ?: return@withLock
+        val currentLatestBookableDate = currentSupply.latestBookableDate() ?: return@withLock
+        if (!currentLatestBookableDate.isBefore(confirmedDate)) return@withLock
+
+        val updatedSupply = currentSupply.mergedConfirmedAvailableDate(
+            confirmedDate = confirmedDate,
+            updateTime = updateTime,
+        )
+        memoryCache = updatedSupply
+        runCatching {
+            persistedStore.write(
+                PersistedTrainDateSupplySnapshot(
+                    savedAtEpochMillis = Instant.now(clock).toEpochMilli(),
+                    supply = updatedSupply,
+                ),
+            )
+        }
+    }
+
     private suspend fun resolvedSupply(forceRefresh: Boolean): TdxTrainDateSupply? = lock.withLock {
         if (!forceRefresh) {
-            memoryCache?.let { return@withLock it }
-            persistedStore.read()
-                ?.takeIf(::isCurrentSnapshot)
-                ?.supply
-                ?.also { memoryCache = it }
-                ?.let { return@withLock it }
+            currentSupply()?.let { return@withLock it }
         }
 
         val supply = runCatching { api.trainDateSupply(forceRefresh) }.getOrNull() ?: return@withLock null
@@ -47,6 +65,14 @@ class TdxBookingWindowStatusProvider(
             )
         }
         supply
+    }
+
+    private suspend fun currentSupply(): TdxTrainDateSupply? {
+        memoryCache?.let { return it }
+        return persistedStore.read()
+            ?.takeIf(::isCurrentSnapshot)
+            ?.supply
+            ?.also { memoryCache = it }
     }
 
     private fun isCurrentSnapshot(snapshot: PersistedTrainDateSupplySnapshot): Boolean {

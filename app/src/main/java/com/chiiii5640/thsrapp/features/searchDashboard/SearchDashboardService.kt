@@ -36,8 +36,10 @@ class SearchDashboardService(
     private val departureBlendWindow = Duration.ofSeconds(12)
 
     suspend fun search(query: TripQuery): SearchResult {
-        val actualLatestBookableDate = bookingWindowStatusProvider?.actualLatestBookableDate(query.forceRefresh)
+        val initialLatestBookableDate = bookingWindowStatusProvider?.actualLatestBookableDate(query.forceRefresh)
         val primaryTimetable = timetableProvider.trains(query)
+        val actualLatestBookableDate = bookingWindowStatusProvider?.actualLatestBookableDate(forceRefresh = false)
+            ?: initialLatestBookableDate
         val fallbackTimetable = if (primaryTimetable.trains.isEmpty() && primaryTimetable.allowsFeedFallback) {
             ThsrLog.i("primary timetable empty, trying feed fallback for ${query.origin.localName}-${query.destination.localName} ${query.travelDate} ${query.departureAfter}")
             fallbackTimetableProvider?.trains(query, query.forceRefresh)

@@ -21,6 +21,7 @@ class TdxTimetableProvider(
     private val api: TdxApiClient,
     private val persistedStore: PersistedGeneralTimetableStore,
     private val clock: Clock = Clock.systemDefaultZone(),
+    private val onDailyTimetableConfirmedAvailableDate: suspend (java.time.LocalDate, String?) -> Unit = { _, _ -> },
 ) : TimetableProvider {
     private var generalMemoryCache: List<TdxGeneralTimetableRecord>? = null
     private var generalCooldownUntil: Instant? = null
@@ -29,6 +30,10 @@ class TdxTimetableProvider(
         val dailyResult = runCatching { api.dailyTimetable(query.travelDate, query.forceRefresh) }
         val daily = dailyResult.getOrNull().orEmpty()
         if (daily.isNotEmpty()) {
+            onDailyTimetableConfirmedAvailableDate(
+                query.travelDate,
+                daily.mapNotNull { it.updateTime }.maxOrNull(),
+            )
             return TimetableResult(
                 trains = daily.mapNotNull { it.toTimetableTrain(query) },
                 status = SourceStatus("TDX DailyTimetable live", SourceState.Live),

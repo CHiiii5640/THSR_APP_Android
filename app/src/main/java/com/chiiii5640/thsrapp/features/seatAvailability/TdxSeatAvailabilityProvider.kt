@@ -33,42 +33,56 @@ class TdxSeatAvailabilityProvider(
         }
 
         val now = Instant.now(clock)
+        val key = query.cacheKey()
+        val cached = cache[key]
         cooldownUntil?.takeIf { it.isAfter(now) }?.let {
+            if (cached != null) {
+                return SeatAvailabilityResult(
+                    cached.values,
+                    SourceStatus("seat availability fallback cache", SourceState.Cache),
+                )
+            }
             return SeatAvailabilityResult(emptyMap(), SourceStatus("seat API cooldown", SourceState.Unavailable))
         }
 
-        val key = query.cacheKey()
         val ttl = if (query.travelDate == LocalDate.now(clock)) Duration.ofSeconds(90) else Duration.ofSeconds(600)
-        val cached = cache[key]
         if (!query.forceRefresh && cached != null && cached.createdAt.plus(ttl).isAfter(now)) {
             return SeatAvailabilityResult(cached.values, SourceStatus("seat availability cache", SourceState.Cache))
         }
 
-        val fetchedResult = runCatching {
-            val od = api.odSeatStatus(query.travelDate, query.origin, query.destination, query.forceRefresh)
-            val board = if (query.travelDate == LocalDate.now(clock)) {
-                api.todaySeatBoard(query.origin, query.forceRefresh)
-            } else {
-                emptyList()
-            }
-            od to board
-        }.onFailure { error ->
-            if (error.message?.contains("429") == true) cooldownUntil = now.plusSeconds(30)
+        val odResult = runCatching {
+            api.odSeatStatus(query.travelDate, query.origin, query.destination, query.forceRefresh)
         }
-        val fetched = fetchedResult.getOrNull()
+            .onFailure { error -> recordCooldown(error, now) }
+        val boardAvailableToday = query.travelDate == LocalDate.now(clock)
+        val boardResult = if (boardAvailableToday) {
+            runCatching {
+                api.todaySeatBoard(query.origin, query.forceRefresh)
+            }.onFailure { error -> recordCooldown(error, now) }
+        } else {
+            null
+        }
 
-        if (fetched == null) {
+        val odStatuses = odResult.getOrNull()
+        val boardStatuses = boardResult?.getOrNull()
+        if (odStatuses == null && boardStatuses == null) {
+            if (cached != null) {
+                return SeatAvailabilityResult(
+                    cached.values,
+                    SourceStatus("seat availability fallback cache", SourceState.Cache),
+                )
+            }
+            val failure = odResult.exceptionOrNull() ?: boardResult?.exceptionOrNull()
             return SeatAvailabilityResult(
                 emptyMap(),
-                unavailableStatus("seat availability unavailable", fetchedResult.exceptionOrNull()),
+                unavailableStatus("seat availability unavailable", failure),
             )
         }
 
-        val (odStatuses, boardStatuses) = fetched
-        val odByTrainNo = odStatuses
+        val odByTrainNo = odStatuses.orEmpty()
             .filter { it.trainNo in trainNos }
             .associateBy { it.trainNo }
-        val boardByTrainNo = boardStatuses
+        val boardByTrainNo = boardStatuses.orEmpty()
             .filter { it.trainNo in trainNos && it.stationId == query.destination.id }
             .associateBy { it.trainNo }
         val mapped = (odByTrainNo.keys + boardByTrainNo.keys)
@@ -81,7 +95,16 @@ class TdxSeatAvailabilityProvider(
             .filterValues { it != null }
             .mapValues { (_, value) -> checkNotNull(value) }
         cache[key] = CacheEntry(now, mapped)
-        return SeatAvailabilityResult(mapped, SourceStatus("TDX seat availability live", SourceState.Live))
+        return SeatAvailabilityResult(
+            mapped,
+            SourceStatus("TDX seat availability live", SourceState.Live),
+        )
+    }
+
+    private fun recordCooldown(error: Throwable, now: Instant) {
+        if (error.message?.contains("429") == true) {
+            cooldownUntil = now.plusSeconds(30)
+        }
     }
 
     private data class CacheEntry(

@@ -40,7 +40,12 @@ class AppGraph(context: Context) {
     )
 
     private val searchDashboardService = SearchDashboardService(
-        timetableProvider = TdxTimetableProvider(tdxApi, persistedGeneralTimetableStore),
+        timetableProvider = TdxTimetableProvider(
+            api = tdxApi,
+            persistedStore = persistedGeneralTimetableStore,
+            clock = clock,
+            onDailyTimetableConfirmedAvailableDate = bookingWindowStatusProvider::confirmAvailableDate,
+        ),
         seatAvailabilityProvider = TdxSeatAvailabilityProvider(tdxApi, clock),
         discountProvider = feedDiscountService,
         fallbackTimetableProvider = feedDiscountService,

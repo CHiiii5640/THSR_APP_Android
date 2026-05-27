@@ -9,6 +9,7 @@ data class TdxDailyTimetableItem(
     @SerialName("TrainDate") val trainDate: String,
     @SerialName("DailyTrainInfo") val dailyTrainInfo: TdxTrainInfo,
     @SerialName("StopTimes") val stopTimes: List<TdxStopTime>,
+    @SerialName("UpdateTime") val updateTime: String? = null,
 )
 
 @Serializable
@@ -109,9 +110,54 @@ data class TdxTrainDateSupply(
     @SerialName("UpdateTime") val updateTime: String? = null,
 ) {
     fun latestBookableDate(): java.time.LocalDate? {
-        val value = trainDates.lastOrNull()?.takeIf { it.isNotBlank() }
-            ?: endDate.takeIf { it.isNotBlank() }
-            ?: return null
-        return java.time.LocalDate.parse(value)
+        val listedDates = trainDates.mapNotNull(::parseLocalDateOrNull)
+        val explicitEndDate = parseLocalDateOrNull(endDate)
+        return (listedDates + listOfNotNull(explicitEndDate)).maxOrNull()
     }
+
+    fun mergedConfirmedAvailableDate(
+        confirmedDate: java.time.LocalDate,
+        updateTime: String?,
+    ): TdxTrainDateSupply {
+        val normalizedDate = confirmedDate.toString()
+        val normalizedStartDate = parseLocalDateOrNull(startDate)
+        val normalizedEndDate = parseLocalDateOrNull(endDate)
+        val mergedTrainDates = trainDates
+            .asSequence()
+            .filter { it.isNotBlank() }
+            .plus(normalizedDate)
+            .distinct()
+            .sorted()
+            .toList()
+
+        return TdxTrainDateSupply(
+            startDate = minOf(normalizedStartDate ?: confirmedDate, confirmedDate).toString(),
+            endDate = maxOf(normalizedEndDate ?: confirmedDate, confirmedDate).toString(),
+            trainDates = mergedTrainDates,
+            updateTime = latestUpdateTime(this.updateTime, updateTime),
+        )
+    }
+}
+
+private fun parseLocalDateOrNull(value: String?): java.time.LocalDate? {
+    val normalized = value?.trim().orEmpty()
+    if (normalized.isEmpty()) return null
+    return runCatching { java.time.LocalDate.parse(normalized) }.getOrNull()
+}
+
+private fun latestUpdateTime(current: String?, incoming: String?): String? {
+    val currentValue = parseOffsetDateTimeOrNull(current)
+    val incomingValue = parseOffsetDateTimeOrNull(incoming)
+    return when {
+        currentValue == null -> incoming
+        incomingValue == null -> current
+        incomingValue >= currentValue -> incoming
+        else -> current
+    }
+}
+
+private fun parseOffsetDateTimeOrNull(value: String?): java.time.OffsetDateTime? {
+    val normalized = value?.trim().orEmpty()
+    if (normalized.isEmpty()) return null
+    return runCatching { java.time.OffsetDateTime.parse(normalized) }.getOrNull()
 }
