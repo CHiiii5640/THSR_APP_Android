@@ -23,7 +23,7 @@ class TdxBookingWindowStatusProvider(
 ) : BookingWindowStatusProvider {
     private val lock = Mutex()
     private var memorySnapshot: PersistedTrainDateSupplySnapshot? = null
-    private var autoRefreshAttemptedDay: LocalDate? = null
+    private var autoRefreshFailureDay: LocalDate? = null
 
     override suspend fun actualLatestBookableDate(forceRefresh: Boolean): LocalDate? {
         return resolvedSupply(forceRefresh)?.latestBookableDate()
@@ -37,16 +37,20 @@ class TdxBookingWindowStatusProvider(
                 memorySnapshot = latestSnapshot
                 return@withLock false to latestSnapshot.supply.latestBookableDate()
             }
-            if (autoRefreshAttemptedDay == today) {
+            if (autoRefreshFailureDay == today) {
                 return@withLock false to latestSnapshot?.supply?.latestBookableDate()
             }
-            autoRefreshAttemptedDay = today
             true to null
         }
 
         if (!shouldRefresh) return latestBookableDate
-        return actualLatestBookableDate(forceRefresh = true)
-            ?: lock.withLock { latestKnownSnapshotLocked()?.supply?.latestBookableDate() }
+        val refreshedLatestBookableDate = actualLatestBookableDate(forceRefresh = true)
+        if (refreshedLatestBookableDate != null) return refreshedLatestBookableDate
+
+        return lock.withLock {
+            autoRefreshFailureDay = today
+            latestKnownSnapshotLocked()?.supply?.latestBookableDate()
+        }
     }
 
     override suspend fun lastTrainDateSupplyUpdatedAt(forceRefresh: Boolean): Instant? {
@@ -80,6 +84,7 @@ class TdxBookingWindowStatusProvider(
         )
         val updatedSnapshot = PersistedTrainDateSupplySnapshot(
             savedAtEpochMillis = Instant.now(clock).toEpochMilli(),
+            lastSuccessfulTrainDatesFetchAtEpochMillis = currentSnapshot.lastSuccessfulTrainDatesFetchAtEpochMillis,
             supply = updatedSupply,
         )
         memorySnapshot = updatedSnapshot
@@ -96,17 +101,20 @@ class TdxBookingWindowStatusProvider(
                 ?.also { memorySnapshot = it }
                 ?.let { return@withLock it.supply }
 
-            if (autoRefreshAttemptedDay == today) {
+            if (autoRefreshFailureDay == today) {
                 return@withLock latestKnownSnapshotLocked()?.supply
             }
         }
 
         val supply = runCatching { api.trainDateSupply(forceRefresh) }.getOrNull() ?: return@withLock null
+        val fetchedAtEpochMillis = Instant.now(clock).toEpochMilli()
         val snapshot = PersistedTrainDateSupplySnapshot(
-            savedAtEpochMillis = Instant.now(clock).toEpochMilli(),
+            savedAtEpochMillis = fetchedAtEpochMillis,
+            lastSuccessfulTrainDatesFetchAtEpochMillis = fetchedAtEpochMillis,
             supply = supply,
         )
         memorySnapshot = snapshot
+        autoRefreshFailureDay = null
         runCatching {
             persistedStore.write(snapshot)
         }
@@ -119,8 +127,12 @@ class TdxBookingWindowStatusProvider(
     }
 
     private fun isCurrentSnapshot(snapshot: PersistedTrainDateSupplySnapshot): Boolean {
-        val savedAt = Instant.ofEpochMilli(snapshot.savedAtEpochMillis).atZone(clock.zone).toLocalDate()
+        val lastSuccessfulFetchDate = snapshot.lastSuccessfulTrainDatesFetchAtEpochMillis
+            ?.let(Instant::ofEpochMilli)
+            ?.atZone(clock.zone)
+            ?.toLocalDate()
+            ?: return false
         val today = LocalDate.now(clock)
-        return savedAt == today
+        return lastSuccessfulFetchDate == today
     }
 }

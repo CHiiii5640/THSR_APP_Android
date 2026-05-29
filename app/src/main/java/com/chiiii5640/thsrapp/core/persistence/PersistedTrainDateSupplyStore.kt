@@ -12,6 +12,7 @@ import java.io.File
 @Serializable
 data class PersistedTrainDateSupplySnapshot(
     val savedAtEpochMillis: Long,
+    val lastSuccessfulTrainDatesFetchAtEpochMillis: Long? = null,
     val supply: TdxTrainDateSupply,
 )
 
